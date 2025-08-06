@@ -1,0 +1,23 @@
+name: Enforce One Required Pull Request Approval
+
+on:
+  pull_request:
+    branches:
+      - main
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  check-approvals:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Require approval from at least one reviewer
+        uses: peternied/required-approval@v1.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          required-approvers-list: "bensgilbert,erri4,pedro-alvesjr,Tails5000,Vinyzu"
+          min-required: 1
