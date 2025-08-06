@@ -54,3 +54,13 @@ jobs:
             - @pedro-alvesjr
             - @tails5000
             - @vinyzu
+
+  fail-if-missing:
+    runs-on: ubuntu-latest
+    needs: [check-approvals, comment-if-missing]
+    if: needs.check-approvals.outputs.has_approval == ''
+    steps:
+      - name: Fail the workflow if missing approval
+        run: |
+          echo "❌ Approval missing: at least one of the required users must approve."
+          exit 1
