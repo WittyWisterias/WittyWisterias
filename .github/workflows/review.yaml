@@ -10,6 +10,8 @@ on:
 jobs:
   check-approvals:
     runs-on: ubuntu-latest
+    outputs:
+      has_approval: ${{ steps.approval_check.outputs.specific-approvals }}
     permissions:
       id-token: write
       contents: read
@@ -22,9 +24,16 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           required-approvers-list: "bensgilbert,erri4,pedro-alvesjr,Tails5000,Vinyzu"
           min-required: 1
+        continue-on-error: true
 
+  comment-if-missing:
+    runs-on: ubuntu-latest
+    needs: approval-check
+    if: needs.approval-check.outputs.has_approval == ''
+    permissions:
+      pull-requests: write
+    steps:
       - name: Check if reminder comment exists
-        if: steps.approval_check.outputs.specific-approvals == ''
         id: find_comment
         uses: peter-evans/find-comment@v3
         with:
@@ -33,7 +42,7 @@ jobs:
           body-includes: "Waiting for at least one more approval"
 
       - name: Add reminder comment if missing
-        if: steps.approval_check.outputs.specific-approvals == '' && steps.find_comment.outputs.comment-id == ''
+        if: steps.find_comment.outputs.comment-id == ''
         uses: peter-evans/create-or-update-comment@v4
         with:
           issue-number: ${{ github.event.pull_request.number }}
