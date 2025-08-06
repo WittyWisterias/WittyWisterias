@@ -1,0 +1,97 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "witty_wisterias"
+version = "1.0.0"
+description = "Witty Wisterias submission for the Python Discord Summer CodeJam 2025."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "bensgilbert" },
+    { name = "erri4" },
+    { name = "pedro-alvesjr" },
+    { name = "Tails5000" },
+    { name = "Vinyzu" },
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Typing :: Typed",
+]
+dynamic = ["dependencies", "optional-dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = "requirements.txt" }
+
+[tool.setuptools.package-data]
+witty_wisterias = ["py.typed"]
+
+[project.urls]
+Homepage = "https://github.com/WittyWisterias/WittyWisterias"
+
+[project.scripts]
+witty_wisterias = "witty_wisterias.__main__:main"
+
+[tool.ruff]
+# Increase the line length. This breaks PEP8 but it is way easier to work with.
+# The original reason for this limit was a standard vim terminal is only 79 characters,
+# but this doesn't really apply anymore.
+line-length = 119
+# Target Python 3.12.
+target-version = "py312"
+# Automatically fix auto-fixable issues.
+fix = true
+# The directory containing the source code.
+src = ["src"]
+
+[tool.ruff.lint]
+# Enable all linting rules.
+select = ["ALL"]
+# Ignore some of the most obnoxious linting errors.
+ignore = [
+    # Missing docstrings.
+    "D100",
+    "D104",
+    "D105",
+    "D106",
+    "D107",
+    # Docstring whitespace.
+    "D203",
+    "D212",
+    # Docstring punctuation.
+    "D415",
+    # Docstring quotes.
+    "D301",
+    # Print statements.
+    "T20",
+    # TODOs.
+    "TD002",
+    "TD003",
+    "FIX",
+    # Annotations.
+    "ANN101",
+    "ANN102",
+    # Future annotations.
+    "FA",
+    # Error messages.
+    "EM",
+]
+
+[tool.ruff.lint.pydocstyle]
+# Use Google-style docstrings.
+convention = "google"
+ignore-decorators = ["typing.overload"]
+
+[tool.mypy]
+strict = true
+disallow_untyped_decorators = false
+disallow_subclassing_any = false
