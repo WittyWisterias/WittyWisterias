@@ -1,0 +1,85 @@
+name: 🛡️ Require one Pull Request Approval
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    # Also recheck when a review is submitted to automatically allow merging
+    types: [submitted]
+
+jobs:
+  approval-check:
+    name: "​" # NOTE: Were using a zero-width space to save some visial clutter in the GitHub Pull Request UI
+    if: github.event.pull_request.draft == false # Only run if the PR is not a draft
+
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Require approval from at least one reviewer
+        id: approval_check
+        uses: peternied/required-approval@v1.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          required-approvers-list: "bensgilbert,erri4,pedro-alvesjr,Tails5000,Vinyzu" # GitHub username is case-sensitive
+          min-required: 1
+        continue-on-error: true
+
+      - name: Set approval flag # This is a workarround because peternied/required-approval's output do not work, so we are checking the stdout
+        id: set_approved_flag
+        run: |
+          echo "approved=$(echo '${{ steps.approval_check.outcome }}' | grep -q 'success' && echo 'yes' || echo 'no')" >> $GITHUB_OUTPUT
+
+      - name: Add reminder comment if approval is missing # Checking if approval comment was already posted
+        if: steps.set_approved_flag.outputs.approved == 'no'
+        id: find_comment_missing
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: github-actions[bot]
+          body-includes: "Waiting for at least one more approval"
+
+      - name: Add reminder comment if missing # Add approval comment if it was not posted yet
+        if: steps.set_approved_flag.outputs.approved == 'no' && steps.find_comment_missing.outputs.comment-id == ''
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ⏳ **Waiting for at least one more approval** from:
+            - @bensgilbert
+            - @erri4
+            - @pedro-alvesjr
+            - @tails5000
+            - @vinyzu
+
+      - name: Delete reminder comment if approval is now present # Find approval comment if it was posted
+        if: steps.set_approved_flag.outputs.approved == 'yes'
+        id: find_comment_present
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: github-actions[bot]
+          body-includes: "Waiting for at least one more approval"
+
+      - name: Delete reminder comment if approval is now present # Delete approval comment if it was posted and approval is now present
+        if: steps.find_comment_present.outputs.comment-id != ''
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.deleteComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: parseInt("${{ steps.find_comment_present.outputs.comment-id }}", 10)
+            });
+
+      - name: Fail workflow if approval is missing # Fail the workflow if approval is still missing
+        if: steps.set_approved_flag.outputs.approved == 'no'
+        run: |
+          echo "❌ Approval missing: at least one of the required users must approve."
+          exit 1
