@@ -56,11 +56,17 @@ jobs:
           comment-author: github-actions[bot]
           body-includes: "Waiting for at least one more approval"
 
-      - name: Remove comment
+      - name: Delete reminder comment
         if: steps.find_comment_present.outputs.comment-id != ''
-        uses: peter-evans/delete-comment@v3
+        uses: actions/github-script@v6
         with:
-          comment-id: ${{ steps.find_comment_present.outputs.comment-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.deleteComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: parseInt("${{ steps.find_comment_present.outputs.comment-id }}", 10)
+            });
 
       - name: Fail workflow if approval is missing
         if: steps.approval_check.outputs.specific-approvals == ''
