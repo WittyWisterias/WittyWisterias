@@ -4,6 +4,7 @@ ruff~=0.12.7
 setuptools~=80.9.0
 types-requests
 # Project dependencies
+beautifulsoup4~=4.13.4
 httpx~=0.28.1
 pillow~=11.3.0
 xxhash~=3.5.0
