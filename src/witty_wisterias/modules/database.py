@@ -1,4 +1,3 @@
-import base64
 import math
 import random
 import re
@@ -43,18 +42,16 @@ class Database:
         return 0.0
 
     @staticmethod
-    def base64_to_image(base64_data: str) -> bytes:
+    def base64_to_image(data: bytes) -> bytes:
         """
-        Converts arbitrary base64 encoded data to image bytes.
+        Converts arbitrary byte encoded data to image bytes.
 
         Args:
-            base64_data (str): The base64 encoded arbitrary data.
+            data (bytes): The byte encoded arbitrary data.
 
         Returns:
             bytes: The encoded data as image bytes.
         """
-        # Decode the base64 string
-        data = base64.b64decode(base64_data)
         # Prepend Custom Message Header for later Image Validation
         # We also add a random noise header to avoid duplicates
         header = b"WittyWisterias" + random.randbytes(8)
@@ -185,24 +182,26 @@ class Database:
         # If no valid image is found, raise an error
         raise InvalidResponseError("No valid image found in the response.")
 
-    def upload_data(self, base64_data: str) -> None:
+    def upload_data(self, data: str) -> None:
         """
-        Uploads base64 encoded data as an image to the database hosted on the Image Hosting Service.
+        Uploads string encoded data as an image to the database hosted on the Image Hosting Service.
 
         Args:
-            base64_data (str): The base64 encoded data to upload.
+            data (str): The data to upload, encoded in a string.
 
         Raises:
             InvalidResponseError: If the upload fails or the response is not as expected.
         """
-        image_bytes = self.base64_to_image(base64_data)
+        # Convert the string data to bytes
+        bytes_data = data.encode("utf-8")
+        # Convert the bytes data to an Image which contains encoded data
+        image_bytes = self.base64_to_image(bytes_data)
+        # Upload the image bytes to the Image Hosting Service
         self.upload_image(image_bytes)
 
 
 if __name__ == "__main__":
     # Example/Testing usage
     db = Database()
-    # Base64 for "Hello, World!"
-    base64_string = base64.b64encode(b"Hello, World! Witty Wisterias.").decode("utf-8")
-    db.upload_data(base64_string)
+    db.upload_data("Hello, World! Witty Wisterias here.")
     print(db.query_data())
