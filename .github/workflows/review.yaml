@@ -9,9 +9,13 @@ on:
     # Also recheck when a review is submitted to automatically allow merging
     types: [submitted]
 
+concurrency: # Make sure only one approval check runs at a time for the same PR, so the pull_request workflow doesnt fail after a review is submitted
+  group: approval-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   approval-check:
-    name: "​" # NOTE: Were using a zero-width space to save some visial clutter in the GitHub Pull Request UI
+    name: "​" # NOTE: Were using a zero-width space to save some visual clutter in the GitHub Pull Request UI
     if: github.event.pull_request.draft == false # Only run if the PR is not a draft
 
     runs-on: ubuntu-latest

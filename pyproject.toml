@@ -52,6 +52,10 @@ target-version = "py312"
 fix = true
 # The directory containing the source code.
 src = ["src"]
+exclude = [
+    # Want to keep Formatting in the requirements file.
+    "requirements.txt",
+]
 
 [tool.ruff.lint]
 # Enable all linting rules.
@@ -66,6 +70,7 @@ ignore = [
     "D107",
     # Docstring whitespace.
     "D203",
+    "D205",
     "D212",
     # Docstring punctuation.
     "D415",
@@ -77,13 +82,23 @@ ignore = [
     "TD002",
     "TD003",
     "FIX",
-    # Annotations.
-    "ANN101",
-    "ANN102",
     # Future annotations.
     "FA",
     # Error messages.
     "EM",
+    "TRY003",
+    # Path/Opens
+    "PTH123",
+    # Trailing commas
+    "COM812",
+    # Magic Values
+    "PLR2004",
+    # Pseudo-random numbers
+    "S311",
+    # Hardcoded Password
+    "S105",
+    # Commented-out code
+    "ERA001",
 ]
 
 [tool.ruff.lint.pydocstyle]
