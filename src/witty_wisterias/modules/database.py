@@ -1,8 +1,9 @@
 import math
 import random
 import re
-from datetime import UTC, datetime
+from datetime import datetime, UTC
 from io import BytesIO
+from typing import NoReturn
 
 # Using httpx instead of requests as it is more modern and has built-in typing support
 import httpx
@@ -11,6 +12,12 @@ from bs4 import BeautifulSoup
 from PIL import Image
 
 from .exceptions import InvalidResponseError
+
+# constants for readability and it would be easier to change the url in case we change hoster
+HOSTER_URL = "https://freeimghost.net/"
+UPLOAD_URL = HOSTER_URL + "upload"
+JSON_URL = HOSTER_URL + "json"
+SEARCH_URL = lambda query: HOSTER_URL + f"search/images/?q={query}" # insert the query into the url
 
 
 class Database:
@@ -72,7 +79,7 @@ class Database:
         pil_image.save(buffer, format="PNG")
         return buffer.getvalue()
 
-    def get_configuration_data(self) -> str:
+    def get_configuration_data(self) -> str | NoReturn:
         """
         Fetches the necessary configuration data for uploading images to the database.
 
@@ -83,7 +90,7 @@ class Database:
             InvalidResponseError: If the configuration data cannot be fetched or the auth token is not found.
         """
         # Getting necessary configuration data for upload
-        config_response = self.session.get("https://freeimghost.net/upload")
+        config_response = self.session.get(UPLOAD_URL)
         # Check if the response is successful
         if config_response.status_code != 200:
             raise InvalidResponseError("Failed to fetch configuration data from the image hosting service.")
@@ -96,9 +103,9 @@ class Database:
         # Extracting auth token
         return match.group(1)
 
-    def upload_image(self, image_bytes: bytes) -> None:
+    def upload_image(self, image_bytes: bytes) -> NoReturn | None:
         """
-        Uploads the image bytes to the database and returns the URL.
+        Uploads the image bytes to the database and returns the URL. <- what???
 
         Args:
             image_bytes (bytes): The image bytes to upload.
@@ -117,7 +124,7 @@ class Database:
 
         # Post Image to Image Hosting Service
         response = self.session.post(
-            url="https://freeimghost.net/json",
+            url=JSON_URL,
             files={
                 "source": (f"WittyWisterias_{utc_timestamp}.png", image_bytes, "image/png"),
             },
@@ -135,7 +142,7 @@ class Database:
         if response.status_code != 200:
             raise InvalidResponseError("Failed to upload image to the image hosting service.")
 
-    def query_data(self) -> str:
+    def query_data(self) -> str | NoReturn:
         """
         Queries the latest data from the database.
 
@@ -146,7 +153,7 @@ class Database:
             InvalidResponseError: If the query fails or the response is not as expected.
         """
         # Query all images with the search term "WittyWisterias" from the image hosting service
-        response = self.session.get("https://freeimghost.net/search/images/?q=WittyWisterias")
+        response = self.session.get(SEARCH_URL("WittyWisterias"))
         # Check if the response is successful
         if response.status_code != 200:
             raise InvalidResponseError("Failed to query latest image from the image hosting service.")
@@ -154,7 +161,7 @@ class Database:
         # Extracting the latest image URL from the response using beautifulsoup
         soup = BeautifulSoup(response.text, "html.parser")
         # Find all image elements which are hosted on the image hosting service
-        image_links = [img.get("src") for img in soup.find_all("img") if "https://freeimghost.net/" in img.get("src")]
+        image_links = [img.get("src") for img in soup.find_all("img") if HOSTER_URL in img.get("src")]
 
         # Sort the image elements by the timestamp in the filename (in the link) (newest first)
         sorted_image_links = sorted(image_links, key=self.extract_timestamp, reverse=True)
@@ -182,7 +189,7 @@ class Database:
         # If no valid image is found, raise an error
         raise InvalidResponseError("No valid image found in the response.")
 
-    def upload_data(self, data: str) -> None:
+    def upload_data(self, data: str) -> NoReturn | None:
         """
         Uploads string encoded data as an image to the database hosted on the Image Hosting Service.
 
