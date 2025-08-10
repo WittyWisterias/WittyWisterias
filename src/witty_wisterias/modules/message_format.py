@@ -1,5 +1,19 @@
 import json
+from enum import Enum, auto
 from typing import TypedDict
+
+
+# TODO: We should probably move types to a separate file for better organization (and exceptions.py too), doesnt belong
+# in /modules/...
+class EventType(Enum):
+    """Enumeration for different task types."""
+
+    PUBLIC_TEXT = auto()
+    PUBLIC_IMAGE = auto()
+    PRIVATE_TEXT = auto()
+    PRIVATE_IMAGE = auto()
+    SET_USERNAME = auto()
+    SET_PROFILEPICTURE = auto()
 
 
 class MessageJson(TypedDict):
@@ -24,7 +38,7 @@ class MessageFormat:
         self,
         sender_id: str,
         content: str,
-        event_type: str,
+        event_type: EventType,
         receiver_id: str | None = None,
         public_key: str | None = None,
         extra_event_info: dict[str, str] | None = None,
@@ -46,7 +60,7 @@ class MessageFormat:
             "header": {
                 "sender_id": self.sender_id,
                 "receiver_id": self.receiver_id,
-                "event_type": self.event_type,
+                "event_type": self.event_type.name,
                 "public_key": self.public_key,
             },
             "body": {"content": self.content, "extra_event_info": self.extra_event_info},
@@ -65,7 +79,7 @@ class MessageFormat:
         return MessageFormat(
             sender_id=obj["header"]["sender_id"],
             receiver_id=obj["header"].get("receiver_id"),
-            event_type=obj["header"]["event_type"],
+            event_type=EventType[obj["header"]["event_type"]],
             public_key=obj["header"].get("public_key"),
             content=obj["body"]["content"],
             extra_event_info=obj["body"].get("extra_event_info", {}),
