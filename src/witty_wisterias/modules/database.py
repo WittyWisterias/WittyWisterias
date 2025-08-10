@@ -1,9 +1,8 @@
 import math
 import random
 import re
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from io import BytesIO
-from typing import NoReturn
 
 # Using httpx instead of requests as it is more modern and has built-in typing support
 import httpx
@@ -17,7 +16,11 @@ from .exceptions import InvalidResponseError
 HOSTER_URL = "https://freeimghost.net/"
 UPLOAD_URL = HOSTER_URL + "upload"
 JSON_URL = HOSTER_URL + "json"
-SEARCH_URL = lambda query: HOSTER_URL + f"search/images/?q={query}" # insert the query into the url
+
+
+def search_url(query: str) -> str:
+    """Insert the query into the url and return it"""
+    return HOSTER_URL + f"search/images/?q={query}"
 
 
 class Database:
@@ -79,7 +82,7 @@ class Database:
         pil_image.save(buffer, format="PNG")
         return buffer.getvalue()
 
-    def get_configuration_data(self) -> str | NoReturn:
+    def get_configuration_data(self) -> str:
         """
         Fetches the necessary configuration data for uploading images to the database.
 
@@ -103,7 +106,7 @@ class Database:
         # Extracting auth token
         return match.group(1)
 
-    def upload_image(self, image_bytes: bytes) -> NoReturn | None:
+    def upload_image(self, image_bytes: bytes) -> None:
         """
         Uploads the image bytes to the database and returns the URL. <- what???
 
@@ -142,7 +145,7 @@ class Database:
         if response.status_code != 200:
             raise InvalidResponseError("Failed to upload image to the image hosting service.")
 
-    def query_data(self) -> str | NoReturn:
+    def query_data(self) -> str:
         """
         Queries the latest data from the database.
 
@@ -153,7 +156,7 @@ class Database:
             InvalidResponseError: If the query fails or the response is not as expected.
         """
         # Query all images with the search term "WittyWisterias" from the image hosting service
-        response = self.session.get(SEARCH_URL("WittyWisterias"))
+        response = self.session.get(search_url("WittyWisterias"))
         # Check if the response is successful
         if response.status_code != 200:
             raise InvalidResponseError("Failed to query latest image from the image hosting service.")
@@ -164,7 +167,7 @@ class Database:
         image_links = [img.get("src") for img in soup.find_all("img") if HOSTER_URL in img.get("src")]
 
         # Sort the image elements by the timestamp in the filename (in the link) (newest first)
-        sorted_image_links = sorted(image_links, key=self.extract_timestamp, reverse=True)
+        sorted_image_links: list[str] = sorted(image_links, key=self.extract_timestamp, reverse=True)
 
         # Find the first image link that contains our validation header and return its pixel byte data
         for image_link in sorted_image_links:
@@ -189,7 +192,7 @@ class Database:
         # If no valid image is found, raise an error
         raise InvalidResponseError("No valid image found in the response.")
 
-    def upload_data(self, data: str) -> NoReturn | None:
+    def upload_data(self, data: str) -> None:
         """
         Uploads string encoded data as an image to the database hosted on the Image Hosting Service.
 
