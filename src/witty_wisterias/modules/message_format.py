@@ -1,5 +1,17 @@
 import json
-from typing import Any, Dict, Optional
+from typing import TypedDict
+
+
+class MessageJson(TypedDict):
+    """
+    Defines the structure of the JSON representation of a message.
+    This is used for serialization and deserialization of messages.
+    """
+
+    header: dict[str, str | None]
+    body: dict[str, str | dict[str, str]]
+    previous_messages: list["MessageFormat"]
+    stop_signal: bool
 
 
 class MessageFormat:
@@ -11,14 +23,14 @@ class MessageFormat:
     def __init__(
         self,
         sender_id: str,
-        content: Any,
+        content: str,
         event_type: str,
-        receiver_id: Optional[str] = None,
-        public_key: Optional[str] = None,
-        extra_event_info: Optional[Dict] = None,
-        previous_messages: Optional[list] = None,
-        stop_signal: bool = False
-    ):
+        receiver_id: str | None = None,
+        public_key: str | None = None,
+        extra_event_info: dict[str, str] | None = None,
+        previous_messages: list["MessageFormat"] | None = None,
+        stop_signal: bool = False,
+    ) -> None:
         self.sender_id = sender_id
         self.receiver_id = receiver_id
         self.event_type = event_type
@@ -28,21 +40,18 @@ class MessageFormat:
         self.previous_messages = previous_messages or []
         self.stop_signal = stop_signal
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> MessageJson:
         """Convert the message into a Python dictionary."""
         return {
             "header": {
                 "sender_id": self.sender_id,
                 "receiver_id": self.receiver_id,
                 "event_type": self.event_type,
-                "public_key": self.public_key
+                "public_key": self.public_key,
             },
-            "body": {
-                "content": self.content,
-                "extra_event_info": self.extra_event_info
-            },
+            "body": {"content": self.content, "extra_event_info": self.extra_event_info},
             "previous_messages": self.previous_messages,
-            "stop_signal": self.stop_signal
+            "stop_signal": self.stop_signal,
         }
 
     def to_json(self) -> str:
@@ -61,5 +70,5 @@ class MessageFormat:
             content=obj["body"]["content"],
             extra_event_info=obj["body"].get("extra_event_info", {}),
             previous_messages=obj.get("previous_messages", []),
-            stop_signal=obj.get("stop_signal", False)
+            stop_signal=obj.get("stop_signal", False),
         )
