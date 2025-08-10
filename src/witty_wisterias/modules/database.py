@@ -12,6 +12,16 @@ from PIL import Image
 
 from .exceptions import InvalidResponseError
 
+# constants for readability and it would be easier to change the url in case we change hoster
+HOSTER_URL = "https://freeimghost.net/"
+UPLOAD_URL = HOSTER_URL + "upload"
+JSON_URL = HOSTER_URL + "json"
+
+
+def search_url(query: str) -> str:
+    """Insert the query into the url and return it"""
+    return HOSTER_URL + f"search/images/?q={query}"
+
 
 class Database:
     """
@@ -83,7 +93,7 @@ class Database:
             InvalidResponseError: If the configuration data cannot be fetched or the auth token is not found.
         """
         # Getting necessary configuration data for upload
-        config_response = self.session.get("https://freeimghost.net/upload")
+        config_response = self.session.get(UPLOAD_URL)
         # Check if the response is successful
         if config_response.status_code != 200:
             raise InvalidResponseError("Failed to fetch configuration data from the image hosting service.")
@@ -98,7 +108,7 @@ class Database:
 
     def upload_image(self, image_bytes: bytes) -> None:
         """
-        Uploads the image bytes to the database and returns the URL.
+        Uploads the image bytes to the database and returns the URL. <- what???
 
         Args:
             image_bytes (bytes): The image bytes to upload.
@@ -117,7 +127,7 @@ class Database:
 
         # Post Image to Image Hosting Service
         response = self.session.post(
-            url="https://freeimghost.net/json",
+            url=JSON_URL,
             files={
                 "source": (f"WittyWisterias_{utc_timestamp}.png", image_bytes, "image/png"),
             },
@@ -146,7 +156,7 @@ class Database:
             InvalidResponseError: If the query fails or the response is not as expected.
         """
         # Query all images with the search term "WittyWisterias" from the image hosting service
-        response = self.session.get("https://freeimghost.net/search/images/?q=WittyWisterias")
+        response = self.session.get(search_url("WittyWisterias"))
         # Check if the response is successful
         if response.status_code != 200:
             raise InvalidResponseError("Failed to query latest image from the image hosting service.")
@@ -154,10 +164,10 @@ class Database:
         # Extracting the latest image URL from the response using beautifulsoup
         soup = BeautifulSoup(response.text, "html.parser")
         # Find all image elements which are hosted on the image hosting service
-        image_links = [img.get("src") for img in soup.find_all("img") if "https://freeimghost.net/" in img.get("src")]
+        image_links = [img.get("src") for img in soup.find_all("img") if HOSTER_URL in img.get("src")]
 
         # Sort the image elements by the timestamp in the filename (in the link) (newest first)
-        sorted_image_links = sorted(image_links, key=self.extract_timestamp, reverse=True)
+        sorted_image_links: list[str] = sorted(image_links, key=self.extract_timestamp, reverse=True)
 
         # Find the first image link that contains our validation header and return its pixel byte data
         for image_link in sorted_image_links:
