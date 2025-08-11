@@ -1,76 +1,17 @@
 import reflex as rx
 
-
-class State(rx.State):
-    """The app state."""
-
-
-def send_image_dialog() -> rx.Component:
-    """The dialog (and button) for sending an image"""
-    return rx.dialog.root(
-        rx.dialog.trigger(
-            rx.button(
-                rx.center(rx.text("Send Image")),
-                padding="24px",
-                radius="large",
-            ),
-        ),
-        rx.dialog.content(
-            rx.dialog.title("Send Image"),
-            rx.dialog.description(
-                "Send an image by describing it in the box below.",
-                size="2",
-                margin_bottom="16px",
-            ),
-            rx.text_area(placeholder="Describe it here..."),
-            rx.flex(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancel",
-                        color_scheme="gray",
-                        variant="soft",
-                    ),
-                ),
-                rx.dialog.close(
-                    rx.button("Send"),
-                ),
-                spacing="3",
-                margin_top="16px",
-                justify="end",
-            ),
-        ),
-    )
+from frontend.components.chatapp import chat_app
+from frontend.components.sidebar import chat_sidebar
 
 
 def index() -> rx.Component:
-    """Welcome Page (Index)"""
-    return rx.container(
-        rx.vstack(
-            rx.aspect_ratio(
-                rx.box(
-                    border_radius="6px",
-                    class_name="border border-2 border-gray-500",
-                    width="100%",
-                    height="100%",
-                ),
-                ratio=1,
-            ),
-            rx.grid(
-                rx.button(
-                    rx.center(rx.text("Send Text")),
-                    padding="24px",
-                    radius="large",
-                ),
-                send_image_dialog(),
-                class_name="w-full",
-                columns="2",
-                spacing="4",
-            ),
-            class_name="w-full",
-        ),
+    """The main page of the chat application, which includes the sidebar and chat app components."""
+    return rx.hstack(
+        chat_sidebar(),
+        chat_app(),
         size="2",
     )
 
 
-app = rx.App()
+app = rx.App(theme=rx.theme(appearance="light", has_background=True, radius="large", accent_color="teal"))
 app.add_page(index)

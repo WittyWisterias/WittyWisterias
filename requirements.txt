@@ -7,4 +7,5 @@ types-requests
 beautifulsoup4~=4.13.4
 httpx~=0.28.1
 pillow~=11.3.0
+reflex~=0.8.5
 xxhash~=3.5.0
