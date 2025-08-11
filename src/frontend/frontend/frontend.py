@@ -2,8 +2,10 @@ import reflex as rx
 
 from frontend.components.chatapp import chat_app
 from frontend.components.sidebar import chat_sidebar
+from frontend.states.chat_state import ChatState
 
 
+@rx.page(on_load=ChatState.check_messages)
 def index() -> rx.Component:
     """The main page of the chat application, which includes the sidebar and chat app components."""
     return rx.hstack(

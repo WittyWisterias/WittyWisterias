@@ -99,6 +99,9 @@ ignore = [
     "S105",
     # Commented-out code
     "ERA001",
+    # Boolean Type Arguments
+    "FBT001",
+    "FBT002"
 ]
 
 [tool.ruff.lint.pydocstyle]
