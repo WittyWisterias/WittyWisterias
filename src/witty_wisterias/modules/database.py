@@ -12,10 +12,12 @@ from PIL import Image
 
 from .exceptions import InvalidResponseError
 
-# constants for readability and it would be easier to change the url in case we change hoster
+# Image Hoster URL and API Endpoints
 HOSTER_URL = "https://freeimghost.net/"
 UPLOAD_URL = HOSTER_URL + "upload"
 JSON_URL = HOSTER_URL + "json"
+# Search Term used to query for our images (and name our files)
+FILE_SEARCH_TERM = "WittyWisterias"
 
 
 def search_url(query: str) -> str:
@@ -30,14 +32,6 @@ class Database:
     Then we will store them here: https://freeimghost.net, which is a free image hosting service.
     We will later be able to query for the latest messages via https://freeimghost.net/search/images/?q={SearchTerm}
     """
-
-    # Image Hoster URL and API Endpoints
-    IMAGE_HOSTER = "https://freeimghost.net"
-    CONFIG_URL = IMAGE_HOSTER + "/upload"
-    UPLOAD_URL = IMAGE_HOSTER + "/json"
-    QUERY_SEARCH_URL = IMAGE_HOSTER + "/search/images/?q="
-    # Search Term used to query for our images (and name our files)
-    FILE_SEARCH_TERM = "WittyWisterias"
 
     def __init__(self) -> None:
         self.session = httpx.Client()
@@ -59,7 +53,8 @@ class Database:
             return float(match.group(1))
         return 0.0
 
-    def base64_to_image(self, data: bytes) -> bytes:
+    @staticmethod
+    def base64_to_image(data: bytes) -> bytes:
         """
         Converts arbitrary byte encoded data to image bytes.
 
@@ -74,7 +69,7 @@ class Database:
         """
         # Prepend Custom Message Header for later Image Validation
         # We also add a random noise header to avoid duplicates
-        header = self.FILE_SEARCH_TERM.encode() + random.randbytes(8)
+        header = FILE_SEARCH_TERM.encode() + random.randbytes(8)
         validation_data = header + data
 
         # Check how many total pixels we need
@@ -144,7 +139,7 @@ class Database:
         response = self.session.post(
             url=JSON_URL,
             files={
-                "source": (f"{self.FILE_SEARCH_TERM}_{utc_timestamp}.png", image_bytes, "image/png"),
+                "source": (f"{FILE_SEARCH_TERM}_{utc_timestamp}.png", image_bytes, "image/png"),
             },
             data={
                 "type": "file",
@@ -195,9 +190,9 @@ class Database:
             pixel_byte_data = pil_image.tobytes()
 
             # Validate the image content starts with our validation header
-            if pixel_byte_data.startswith(self.FILE_SEARCH_TERM.encode()):
+            if pixel_byte_data.startswith(FILE_SEARCH_TERM.encode()):
                 # Remove the validation header and noise bytes from the first valid image
-                no_header_data = pixel_byte_data[len(self.FILE_SEARCH_TERM.encode()) + 8 :]
+                no_header_data = pixel_byte_data[len(FILE_SEARCH_TERM.encode()) + 8 :]
                 # Remove any padding bytes (if any) to get the original data
                 no_padding_data = no_header_data.rstrip(b"\x00")
                 # Decode bytes into string and return it
