@@ -25,7 +25,6 @@ class MessageJson(TypedDict):
     header: dict[str, str | None]
     body: dict[str, str | dict[str, str]]
     previous_messages: list["MessageFormat"]
-    stop_signal: bool
 
 
 class MessageFormat:
@@ -43,7 +42,6 @@ class MessageFormat:
         public_key: str | None = None,
         extra_event_info: dict[str, str] | None = None,
         previous_messages: list["MessageFormat"] | None = None,
-        stop_signal: bool = False,
     ) -> None:
         self.sender_id = sender_id
         self.receiver_id = receiver_id
@@ -52,7 +50,6 @@ class MessageFormat:
         self.content = content
         self.extra_event_info = extra_event_info or {}
         self.previous_messages = previous_messages or []
-        self.stop_signal = stop_signal
 
     def to_dict(self) -> MessageJson:
         """Convert the message into a Python dictionary."""
@@ -65,7 +62,6 @@ class MessageFormat:
             },
             "body": {"content": self.content, "extra_event_info": self.extra_event_info},
             "previous_messages": self.previous_messages,
-            "stop_signal": self.stop_signal,
         }
 
     def to_json(self) -> str:
@@ -84,5 +80,4 @@ class MessageFormat:
             content=obj["body"]["content"],
             extra_event_info=obj["body"].get("extra_event_info", {}),
             previous_messages=obj.get("previous_messages", []),
-            stop_signal=obj.get("stop_signal", False),
         )
