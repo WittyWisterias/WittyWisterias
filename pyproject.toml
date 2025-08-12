@@ -101,7 +101,9 @@ ignore = [
     "ERA001",
     # Boolean Type Arguments
     "FBT001",
-    "FBT002"
+    "FBT002",
+    # Implicit Namespaces, conflicts with Reflex
+    "INP001",
 ]
 
 [tool.ruff.lint.pydocstyle]
