@@ -12,6 +12,18 @@ from PIL import Image
 
 from .exceptions import InvalidResponseError
 
+# Image Hoster URL and API Endpoints
+HOSTER_URL = "https://freeimghost.net/"
+UPLOAD_URL = HOSTER_URL + "upload"
+JSON_URL = HOSTER_URL + "json"
+# Search Term used to query for our images (and name our files)
+FILE_SEARCH_TERM = "WittyWisterias"
+
+
+def search_url(query: str) -> str:
+    """Insert the query into the url and return it"""
+    return HOSTER_URL + f"search/images/?q={query}"
+
 
 class Database:
     """
@@ -51,26 +63,34 @@ class Database:
 
         Returns:
             bytes: The encoded data as image bytes.
+
+        Raises:
+            ValueError: If the resulting image exceeds the size limit of 20MB.
         """
         # Prepend Custom Message Header for later Image Validation
         # We also add a random noise header to avoid duplicates
-        header = b"WittyWisterias" + random.randbytes(8)
+        header = FILE_SEARCH_TERM.encode() + random.randbytes(8)
         validation_data = header + data
 
         # Check how many total pixels we need
         total_pixels = math.ceil(len(validation_data) / 3)
-        # Calculate the size of the image (assuming square for simplicity)
-        # TODO: Use a more complex, space-efficient shape to save more data if needed
-        size = math.ceil(math.sqrt(total_pixels))
+        # Calculate the size of the image (using ideal rectangle dimensions for space efficiency)
+        width = math.ceil(math.sqrt(total_pixels))
+        height = math.ceil(total_pixels / width)
         # Pad the data to fit the image size
-        padded_data = validation_data.ljust(size * size * 3, b"\x00")
+        padded_data = validation_data.ljust(width * height * 3, b"\x00")
 
         # Create the image bytes from the padded data
-        pil_image = Image.frombytes(mode="RGB", size=(size, size), data=padded_data)
+        pil_image = Image.frombytes(mode="RGB", size=(width, height), data=padded_data)
         # Save as PNG (lossless) in memory
         buffer = BytesIO()
         pil_image.save(buffer, format="PNG")
-        return buffer.getvalue()
+        # Get the byte content of the image file
+        image_bytes = buffer.getvalue()
+        # Check File Size (Image Hosting Service Limit)
+        if len(image_bytes) > 20 * 1024 * 1024:
+            raise ValueError("File Size exceeds limit of 20MB, shrink the Image Stack.")
+        return image_bytes
 
     def get_configuration_data(self) -> str:
         """
@@ -83,7 +103,7 @@ class Database:
             InvalidResponseError: If the configuration data cannot be fetched or the auth token is not found.
         """
         # Getting necessary configuration data for upload
-        config_response = self.session.get("https://freeimghost.net/upload")
+        config_response = self.session.get(UPLOAD_URL)
         # Check if the response is successful
         if config_response.status_code != 200:
             raise InvalidResponseError("Failed to fetch configuration data from the image hosting service.")
@@ -98,7 +118,7 @@ class Database:
 
     def upload_image(self, image_bytes: bytes) -> None:
         """
-        Uploads the image bytes to the database and returns the URL.
+        Uploads the image bytes to the Database/Image Hosting Service.
 
         Args:
             image_bytes (bytes): The image bytes to upload.
@@ -117,9 +137,9 @@ class Database:
 
         # Post Image to Image Hosting Service
         response = self.session.post(
-            url="https://freeimghost.net/json",
+            url=JSON_URL,
             files={
-                "source": (f"WittyWisterias_{utc_timestamp}.png", image_bytes, "image/png"),
+                "source": (f"{FILE_SEARCH_TERM}_{utc_timestamp}.png", image_bytes, "image/png"),
             },
             data={
                 "type": "file",
@@ -146,7 +166,7 @@ class Database:
             InvalidResponseError: If the query fails or the response is not as expected.
         """
         # Query all images with the search term "WittyWisterias" from the image hosting service
-        response = self.session.get("https://freeimghost.net/search/images/?q=WittyWisterias")
+        response = self.session.get(search_url("WittyWisterias"))
         # Check if the response is successful
         if response.status_code != 200:
             raise InvalidResponseError("Failed to query latest image from the image hosting service.")
@@ -154,10 +174,10 @@ class Database:
         # Extracting the latest image URL from the response using beautifulsoup
         soup = BeautifulSoup(response.text, "html.parser")
         # Find all image elements which are hosted on the image hosting service
-        image_links = [img.get("src") for img in soup.find_all("img") if "https://freeimghost.net/" in img.get("src")]
+        image_links = [img.get("src") for img in soup.find_all("img") if HOSTER_URL in img.get("src")]
 
         # Sort the image elements by the timestamp in the filename (in the link) (newest first)
-        sorted_image_links = sorted(image_links, key=self.extract_timestamp, reverse=True)
+        sorted_image_links: list[str] = sorted(image_links, key=self.extract_timestamp, reverse=True)
 
         # Find the first image link that contains our validation header and return its pixel byte data
         for image_link in sorted_image_links:
@@ -170,9 +190,9 @@ class Database:
             pixel_byte_data = pil_image.tobytes()
 
             # Validate the image content starts with our validation header
-            if pixel_byte_data.startswith(b"WittyWisterias"):
+            if pixel_byte_data.startswith(FILE_SEARCH_TERM.encode()):
                 # Remove the validation header and noise bytes from the first valid image
-                no_header_data = pixel_byte_data[len(b"WittyWisterias") + 8 :]
+                no_header_data = pixel_byte_data[len(FILE_SEARCH_TERM.encode()) + 8 :]
                 # Remove any padding bytes (if any) to get the original data
                 no_padding_data = no_header_data.rstrip(b"\x00")
                 # Decode bytes into string and return it
@@ -190,6 +210,7 @@ class Database:
             data (str): The data to upload, encoded in a string.
 
         Raises:
+            ValueError: If the resulting image exceeds the size limit of 20MB.
             InvalidResponseError: If the upload fails or the response is not as expected.
         """
         # Convert the string data to bytes
