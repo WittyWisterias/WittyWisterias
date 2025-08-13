@@ -8,7 +8,7 @@ from typing import Literal, TypedDict, cast
 import reflex as rx
 import requests
 from backend.backend import Backend
-from backend.cryptography import Cryptography
+from backend.cryptographer import Cryptographer
 from backend.message_format import EventType, MessageFormat
 from PIL import Image
 
@@ -53,7 +53,7 @@ class ChatState(rx.State):
             dict[str, str]: A dictionary containing the keys and their corresponding values.
         """
         storage = self.__getattribute__(f"{storage_name}_storage")
-        return cast("dict[str, str]", storage)
+        return cast("dict[str, str]", json.loads(storage))
 
     def dump_key_storage(
         self, storage_name: Literal["verify_keys", "private_keys", "public_keys"], value: dict[str, str]
@@ -112,6 +112,7 @@ class ChatState(rx.State):
                 content=message,
                 timestamp=message_timestamp,
                 signing_key=self.signing_key,
+                verify_key=self.get_key_storage("verify_keys")[self.user_id],
             )
             Backend.send_public_text(message_format)
 
@@ -180,9 +181,9 @@ class ChatState(rx.State):
         # Initialize user_id if not already set
         if not self.user_id:
             # Simulate fetching a user ID from an external source
-            self.user_id = Cryptography.generate_random_user_id()
+            self.user_id = Cryptographer.generate_random_user_id()
 
         # Generate new Signing Key Pair if not set
         if not self.signing_key or self.user_id not in self.get_key_storage("verify_keys"):
-            self.signing_key, verify_key = Cryptography.generate_signing_key_pair()
+            self.signing_key, verify_key = Cryptographer.generate_signing_key_pair()
             self.add_key_storage("verify_keys", self.user_id, verify_key)

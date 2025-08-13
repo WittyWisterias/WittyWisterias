@@ -13,14 +13,14 @@ from PIL import Image
 from .exceptions import InvalidResponseError
 
 # Global HTTP Session for the Database
-HTTP_SESSION = httpx.Client()
+HTTP_SESSION = httpx.Client(timeout=30)
 
 # Image Hoster URL and API Endpoints
 HOSTER_URL = "https://freeimghost.net/"
 UPLOAD_URL = HOSTER_URL + "upload"
 JSON_URL = HOSTER_URL + "json"
 # Search Term used to query for our images (and name our files)
-FILE_SEARCH_TERM = "WittyWisterias v6"
+FILE_SEARCH_TERM = "WittyWisteriasV7"
 
 
 def search_url(query: str) -> str:
@@ -168,8 +168,8 @@ class Database:
         Raises:
             InvalidResponseError: If the query fails or the response is not as expected.
         """
-        # Query all images with the search term "WittyWisterias" from the image hosting service
-        response = HTTP_SESSION.get(search_url("WittyWisterias"))
+        # Query all images with the FILE_SEARCH_TERM from the image hosting service
+        response = HTTP_SESSION.get(search_url(FILE_SEARCH_TERM))
         # Check if the response is successful
         if response.status_code != 200:
             raise InvalidResponseError("Failed to query latest image from the image hosting service.")
