@@ -14,7 +14,8 @@ def chat_app() -> rx.Component:
                 ChatState.messages,
                 lambda message: chat_bubble_component(
                     message["message"],
-                    message["user_name"],
+                    # Use UserID as fallback for Username
+                    rx.cond(message["user_name"], message["user_name"], message["user_id"]),
                     message["user_profile_image"],
                     message["own_message"],
                     message["is_image_message"],

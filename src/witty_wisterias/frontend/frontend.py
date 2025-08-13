@@ -5,7 +5,7 @@ from frontend.components.sidebar import chat_sidebar
 from frontend.states.chat_state import ChatState
 
 
-@rx.page(on_load=ChatState.check_messages)
+@rx.page(on_load=ChatState.startup_event)
 def index() -> rx.Component:
     """The main page of the chat application, which includes the sidebar and chat app components."""
     return rx.hstack(
@@ -23,6 +23,7 @@ app = rx.App(
     ],
     style={
         "font_family": "Bitcount Prop Single",
+        "background_color": "white",
     },
 )
 app.add_page(index)

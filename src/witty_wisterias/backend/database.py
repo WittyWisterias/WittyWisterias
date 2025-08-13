@@ -12,12 +12,15 @@ from PIL import Image
 
 from .exceptions import InvalidResponseError
 
+# Global HTTP Session for the Database
+HTTP_SESSION = httpx.Client()
+
 # Image Hoster URL and API Endpoints
 HOSTER_URL = "https://freeimghost.net/"
 UPLOAD_URL = HOSTER_URL + "upload"
 JSON_URL = HOSTER_URL + "json"
 # Search Term used to query for our images (and name our files)
-FILE_SEARCH_TERM = "WittyWisterias"
+FILE_SEARCH_TERM = "WittyWisterias v6"
 
 
 def search_url(query: str) -> str:
@@ -32,9 +35,6 @@ class Database:
     Then we will store them here: https://freeimghost.net, which is a free image hosting service.
     We will later be able to query for the latest messages via https://freeimghost.net/search/images/?q={SearchTerm}
     """
-
-    def __init__(self) -> None:
-        self.session = httpx.Client()
 
     @staticmethod
     def extract_timestamp(url: str) -> float:
@@ -92,7 +92,8 @@ class Database:
             raise ValueError("File Size exceeds limit of 20MB, shrink the Image Stack.")
         return image_bytes
 
-    def get_configuration_data(self) -> str:
+    @staticmethod
+    def get_configuration_data() -> str:
         """
         Fetches the necessary configuration data for uploading images to the database.
 
@@ -103,7 +104,7 @@ class Database:
             InvalidResponseError: If the configuration data cannot be fetched or the auth token is not found.
         """
         # Getting necessary configuration data for upload
-        config_response = self.session.get(UPLOAD_URL)
+        config_response = HTTP_SESSION.get(UPLOAD_URL)
         # Check if the response is successful
         if config_response.status_code != 200:
             raise InvalidResponseError("Failed to fetch configuration data from the image hosting service.")
@@ -116,7 +117,8 @@ class Database:
         # Extracting auth token
         return match.group(1)
 
-    def upload_image(self, image_bytes: bytes) -> None:
+    @staticmethod
+    def upload_image(image_bytes: bytes) -> None:
         """
         Uploads the image bytes to the Database/Image Hosting Service.
 
@@ -131,12 +133,12 @@ class Database:
         # Convert to UTC Timestamp
         utc_timestamp = utc_time.timestamp()
 
-        auth_token = self.get_configuration_data()
+        auth_token = Database.get_configuration_data()
         # Hash the image bytes to create a checksum using xxHash64 (Specified by Image Hosting Service)
         checksum = xxhash.xxh64(image_bytes).hexdigest()
 
         # Post Image to Image Hosting Service
-        response = self.session.post(
+        response = HTTP_SESSION.post(
             url=JSON_URL,
             files={
                 "source": (f"{FILE_SEARCH_TERM}_{utc_timestamp}.png", image_bytes, "image/png"),
@@ -155,7 +157,8 @@ class Database:
         if response.status_code != 200:
             raise InvalidResponseError("Failed to upload image to the image hosting service.")
 
-    def query_data(self) -> str:
+    @staticmethod
+    def query_data() -> str:
         """
         Queries the latest data from the database.
 
@@ -166,7 +169,7 @@ class Database:
             InvalidResponseError: If the query fails or the response is not as expected.
         """
         # Query all images with the search term "WittyWisterias" from the image hosting service
-        response = self.session.get(search_url("WittyWisterias"))
+        response = HTTP_SESSION.get(search_url("WittyWisterias"))
         # Check if the response is successful
         if response.status_code != 200:
             raise InvalidResponseError("Failed to query latest image from the image hosting service.")
@@ -177,12 +180,12 @@ class Database:
         image_links = [img.get("src") for img in soup.find_all("img") if HOSTER_URL in img.get("src")]
 
         # Sort the image elements by the timestamp in the filename (in the link) (newest first)
-        sorted_image_links: list[str] = sorted(image_links, key=self.extract_timestamp, reverse=True)
+        sorted_image_links: list[str] = sorted(image_links, key=Database.extract_timestamp, reverse=True)
 
         # Find the first image link that contains our validation header and return its pixel byte data
         for image_link in sorted_image_links:
             # Fetch the image content
-            image_content = self.session.get(image_link).content
+            image_content = HTTP_SESSION.get(image_link).content
 
             # Get the byte content of the image without the PNG Image File Header
             image_stream = BytesIO(image_content)
@@ -199,10 +202,11 @@ class Database:
                 decoded_data: str = no_padding_data.decode("utf-8", errors="ignore")
                 return decoded_data
 
-        # If no valid image is found, raise an error
-        raise InvalidResponseError("No valid image found in the response.")
+        # If no valid image is found, return an empty string
+        return ""
 
-    def upload_data(self, data: str) -> None:
+    @staticmethod
+    def upload_data(data: str) -> None:
         """
         Uploads string encoded data as an image to the database hosted on the Image Hosting Service.
 
@@ -216,9 +220,9 @@ class Database:
         # Convert the string data to bytes
         bytes_data = data.encode("utf-8")
         # Convert the bytes data to an Image which contains encoded data
-        image_bytes = self.base64_to_image(bytes_data)
+        image_bytes = Database.base64_to_image(bytes_data)
         # Upload the image bytes to the Image Hosting Service
-        self.upload_image(image_bytes)
+        Database.upload_image(image_bytes)
 
 
 if __name__ == "__main__":

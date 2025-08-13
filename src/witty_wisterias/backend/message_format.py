@@ -1,4 +1,5 @@
 import json
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import TypedDict
 
@@ -22,34 +23,45 @@ class MessageJson(TypedDict):
     This is used for serialization and deserialization of messages.
     """
 
-    header: dict[str, str | None]
-    body: dict[str, str | dict[str, str]]
-    previous_messages: list["MessageFormat"]
+    header: dict[str, str | float | None]
+    body: dict[str, str | dict[str, str | None]]
 
 
+@dataclass
+class ExtraEventInfo:
+    """Storage for extra information related to an event."""
+
+    user_name: str | None = field(default=None)
+    user_image: str | None = field(default=None)
+
+    def to_dict(self) -> dict[str, str | None]:
+        """Convert the extra event info to a dictionary."""
+        return {
+            "user_name": self.user_name,
+            "user_image": self.user_image,
+        }
+
+    @staticmethod
+    def from_json(data: dict[str, str | None]) -> "ExtraEventInfo":
+        """Deserialize a JSON string into an ExtraEventInfo object."""
+        return ExtraEventInfo(user_name=data.get("user_name", ""), user_image=data.get("user_image", ""))
+
+
+@dataclass
 class MessageFormat:
     """
     Defines the standard structure for messages in the system.
     Supports serialization/deserialization for storage in images.
     """
 
-    def __init__(
-        self,
-        sender_id: str,
-        content: str,
-        event_type: EventType,
-        receiver_id: str | None = None,
-        public_key: str | None = None,
-        extra_event_info: dict[str, str] | None = None,
-        previous_messages: list["MessageFormat"] | None = None,
-    ) -> None:
-        self.sender_id = sender_id
-        self.receiver_id = receiver_id
-        self.event_type = event_type
-        self.public_key = public_key
-        self.content = content
-        self.extra_event_info = extra_event_info or {}
-        self.previous_messages = previous_messages or []
+    sender_id: str
+    event_type: EventType
+    content: str
+    timestamp: float
+    receiver_id: str = field(default="None")
+    signing_key: str = field(default="")
+    public_key: str = field(default="")
+    extra_event_info: ExtraEventInfo = field(default_factory=ExtraEventInfo)
 
     def to_dict(self) -> MessageJson:
         """Convert the message into a Python dictionary."""
@@ -58,10 +70,11 @@ class MessageFormat:
                 "sender_id": self.sender_id,
                 "receiver_id": self.receiver_id,
                 "event_type": self.event_type.name,
+                "signing_key": self.signing_key,
                 "public_key": self.public_key,
+                "timestamp": self.timestamp,
             },
-            "body": {"content": self.content, "extra_event_info": self.extra_event_info},
-            "previous_messages": self.previous_messages,
+            "body": {"content": self.content, "extra_event_info": self.extra_event_info.to_dict()},
         }
 
     def to_json(self) -> str:
@@ -76,8 +89,9 @@ class MessageFormat:
             sender_id=obj["header"]["sender_id"],
             receiver_id=obj["header"].get("receiver_id"),
             event_type=EventType[obj["header"]["event_type"]],
+            signing_key=obj["header"].get("signing_key"),
             public_key=obj["header"].get("public_key"),
+            timestamp=obj["header"]["timestamp"],
             content=obj["body"]["content"],
-            extra_event_info=obj["body"].get("extra_event_info", {}),
-            previous_messages=obj.get("previous_messages", []),
+            extra_event_info=ExtraEventInfo.from_json(obj["body"].get("extra_event_info", {})),
         )
