@@ -99,11 +99,13 @@ ignore = [
     "S105",
     # Commented-out code
     "ERA001",
-    # Functions with too many arguments
-    "PLR0913",
     # Boolean Type Arguments
     "FBT001",
-    "FBT002"
+    "FBT002",
+    # Implicit Namespaces, conflicts with Reflex
+    "INP001",
+    # Functions with too many arguments
+    "PLR0913",
 ]
 
 [tool.ruff.lint.pydocstyle]
