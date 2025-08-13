@@ -5,7 +5,7 @@ from nacl.public import Box, PrivateKey, PublicKey
 from nacl.signing import SigningKey, VerifyKey
 
 
-class Cryptography:
+class Cryptographer:
     """
     A class to handle cryptographic operations of our chat App.
     Handles Public-Key Encryption and Digital Signatures of messages.
