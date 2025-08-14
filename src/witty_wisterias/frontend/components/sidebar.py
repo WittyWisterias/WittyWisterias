@@ -1,5 +1,6 @@
 import reflex as rx
 
+from frontend.states.chat_state import ChatState
 from frontend.states.progress_state import ProgressState
 
 
@@ -44,10 +45,12 @@ def chat_sidebar() -> rx.Component:
                 rx.heading(ProgressState.progress, size="2", class_name="text-gray-500"),
                 rx.divider(),
                 rx.hstack(
-                    rx.avatar(fallback="ID", radius="large", size="3"),
+                    rx.avatar(
+                        src=ChatState.user_profile_image, fallback=ChatState.user_id[:2], radius="large", size="3"
+                    ),
                     rx.vstack(
-                        rx.text("User Name", size="3"),
-                        rx.text("UserID", size="1", class_name="text-gray-500"),
+                        rx.text(ChatState.user_name | ChatState.user_id, size="3"),
+                        rx.text(ChatState.user_id, size="1", class_name="text-gray-500"),
                         spacing="0",
                     ),
                     class_name="mt-1",
