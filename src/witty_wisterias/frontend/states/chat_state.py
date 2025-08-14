@@ -31,6 +31,8 @@ class Message(TypedDict):
 class ChatState(rx.State):
     """The Chat app state, used to handle Messages."""
 
+    # Tos Accepted (Note: We need to use a string here because LocalStorage does not support booleans)
+    tos_accepted: str = rx.LocalStorage("False", name="tos_accepted", sync=True)
     # List of Messages
     messages: list[Message] = rx.field(default_factory=list)
     # Own User Data
@@ -82,6 +84,12 @@ class ChatState(rx.State):
         current_keys = self.get_key_storage(storage_name)
         current_keys[user_id] = verify_key
         self.dump_key_storage(storage_name, current_keys)
+
+    @rx.event
+    def accept_tos(self) -> Generator[None, None]:
+        """Reflex Event when the Terms of Service are accepted."""
+        self.tos_accepted = "True"
+        yield
 
     @rx.event
     def send_text(self, form_data: dict[str, str]) -> Generator[None, None]:
