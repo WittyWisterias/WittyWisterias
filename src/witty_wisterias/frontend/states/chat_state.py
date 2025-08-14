@@ -41,16 +41,16 @@ class ChatState(rx.State):
     signing_key: str = rx.LocalStorage("", name="signing_key", sync=True)
     verify_keys_storage: str = rx.LocalStorage("{}", name="verify_keys_storage", sync=True)
     # Own Private Keys and Others Public Keys for Private Chats
-    private_keys_storage: str = rx.LocalStorage("{}", name="private_keys_storage", sync=True)
+    private_key: str = rx.LocalStorage("", name="private_key", sync=True)
     public_keys_storage: str = rx.LocalStorage("{}", name="public_keys_storage", sync=True)
 
     # Verify Keys Storage Helpers
-    def get_key_storage(self, storage_name: Literal["verify_keys", "private_keys", "public_keys"]) -> dict[str, str]:
+    def get_key_storage(self, storage_name: Literal["verify_keys", "public_keys"]) -> dict[str, str]:
         """
         Get the key storage for the specified storage name.
 
         Args:
-            storage_name (Literal["verify_keys", "private_keys", "public_keys"]): The name of the storage to retrieve.
+            storage_name (Literal["verify_keys", "public_keys"]): The name of the storage to retrieve.
 
         Returns:
             dict[str, str]: A dictionary containing the keys and their corresponding values.
@@ -58,26 +58,24 @@ class ChatState(rx.State):
         storage = self.__getattribute__(f"{storage_name}_storage")
         return cast("dict[str, str]", json.loads(storage))
 
-    def dump_key_storage(
-        self, storage_name: Literal["verify_keys", "private_keys", "public_keys"], value: dict[str, str]
-    ) -> None:
+    def dump_key_storage(self, storage_name: Literal["verify_keys", "public_keys"], value: dict[str, str]) -> None:
         """
         Dump the key storage to the specified storage name.
 
         Args:
-            storage_name (Literal["verify_keys", "private_keys", "public_keys"]): The name of the storage to dump to.
+            storage_name (Literal["verify_keys", "public_keys"]): The name of the storage to dump to.
             value (dict[str, str]): The dictionary containing the userIDs and their Keys.
         """
         self.__setattr__(f"{storage_name}_storage", json.dumps(value))
 
     def add_key_storage(
-        self, storage_name: Literal["verify_keys", "private_keys", "public_keys"], user_id: str, verify_key: str
+        self, storage_name: Literal["verify_keys", "public_keys"], user_id: str, verify_key: str
     ) -> None:
         """
         Add a userID and its corresponding key to the specified storage.
 
         Args:
-            storage_name (Literal["verify_keys", "private_keys", "public_keys"]): The name of the storage to add to.
+            storage_name (Literal["verify_keys", "public_keys"]): The name of the storage to add to.
             user_id (str): The user ID to add.
             verify_key (str): The key to associate with the user ID.
         """
@@ -221,3 +219,8 @@ class ChatState(rx.State):
         if not self.signing_key or self.user_id not in self.get_key_storage("verify_keys"):
             self.signing_key, verify_key = Cryptographer.generate_signing_key_pair()
             self.add_key_storage("verify_keys", self.user_id, verify_key)
+
+        # Generate new Private Key Pair if not set
+        if not self.private_key or self.user_id not in self.get_key_storage("public_keys"):
+            self.private_key, public_key = Cryptographer.generate_encryption_key_pair()
+            self.add_key_storage("public_keys", self.user_id, public_key)
