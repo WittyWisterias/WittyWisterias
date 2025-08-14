@@ -208,3 +208,7 @@ __marimo__/
 
 # DS Store (macOS)
 .DS_Store
+
+# Reflex
+.web
+.states
