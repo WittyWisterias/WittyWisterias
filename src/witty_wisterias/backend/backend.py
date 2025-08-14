@@ -90,7 +90,7 @@ class Backend:
         return base64.b64encode(compressed_stack).decode("utf-8")
 
     @staticmethod
-    def send_public_text(message: MessageFormat) -> None:
+    def send_public_message(message: MessageFormat) -> None:
         """
         Send a public test message to the Database.
 
@@ -120,7 +120,7 @@ class Backend:
         Database.upload_data(Backend.encode(queried_data))
 
     @staticmethod
-    def read_public_text() -> list[MessageFormat]:
+    def read_public_messages() -> list[MessageFormat]:
         """
         Read public text messages.
         This method should be overridden by the backend.

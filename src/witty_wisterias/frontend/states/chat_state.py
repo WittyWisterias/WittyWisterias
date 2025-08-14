@@ -114,7 +114,7 @@ class ChatState(rx.State):
                 signing_key=self.signing_key,
                 verify_key=self.get_key_storage("verify_keys")[self.user_id],
             )
-            Backend.send_public_text(message_format)
+            Backend.send_public_message(message_format)
 
     @rx.event
     def send_image(self, form_data: dict[str, str]) -> None:
@@ -131,6 +131,7 @@ class ChatState(rx.State):
             img = Image.open(io.BytesIO(response.content))
 
             message_timestamp = datetime.now(UTC).timestamp()
+            # Appending new own message
             self.messages.append(
                 Message(
                     message=img,
@@ -142,13 +143,23 @@ class ChatState(rx.State):
                     timestamp=message_timestamp,
                 )
             )
+            # Posting message to backend
+            message_format = MessageFormat(
+                sender_id=self.user_id,
+                event_type=EventType.PUBLIC_IMAGE,
+                content=message,
+                timestamp=message_timestamp,
+                signing_key=self.signing_key,
+                verify_key=self.get_key_storage("verify_keys")[self.user_id],
+            )
+            Backend.send_public_message(message_format)
 
     @rx.event(background=True)
     async def check_messages(self) -> None:
         """Reflex Background Check for new messages."""
         while True:
             async with self:
-                for message in Backend.read_public_text():
+                for message in Backend.read_public_messages():
                     # Check if the message is already in the chat using timestamp
                     message_exists = any(
                         msg["timestamp"] == message.timestamp and msg["user_id"] == message.sender_id
