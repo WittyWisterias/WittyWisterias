@@ -1,5 +1,7 @@
 import reflex as rx
 
+from frontend.states.progress_state import ProgressState
+
 
 def chat_sidebar() -> rx.Component:
     """Sidebar component for the chat application, which allows users to select different chats."""
@@ -38,14 +40,19 @@ def chat_sidebar() -> rx.Component:
                 size="3",
                 class_name="w-full justify-center bg-gray-100 hover:bg-gray-200",
             ),
-            rx.hstack(
-                rx.avatar(fallback="ID", radius="large", size="3"),
-                rx.vstack(
-                    rx.text("User Name", size="3"),
-                    rx.text("UserID", size="1", class_name="text-gray-500"),
-                    spacing="0",
+            rx.vstack(
+                rx.heading(ProgressState.progress, size="2", class_name="text-gray-500"),
+                rx.divider(),
+                rx.hstack(
+                    rx.avatar(fallback="ID", radius="large", size="3"),
+                    rx.vstack(
+                        rx.text("User Name", size="3"),
+                        rx.text("UserID", size="1", class_name="text-gray-500"),
+                        spacing="0",
+                    ),
+                    class_name="mt-1",
                 ),
-                class_name="mt-auto mb-5",
+                class_name="mt-auto mb-7 w-full",
             ),
             class_name="h-screen bg-gray-50",
         ),

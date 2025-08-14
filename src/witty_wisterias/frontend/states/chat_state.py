@@ -1,7 +1,8 @@
 import asyncio
 import io
 import json
-from collections.abc import AsyncGenerator
+import threading
+from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime
 from typing import Literal, TypedDict, cast
 
@@ -11,6 +12,8 @@ from backend.backend import Backend
 from backend.cryptographer import Cryptographer
 from backend.message_format import EventType, MessageFormat
 from PIL import Image
+
+from frontend.states.progress_state import ProgressState
 
 
 class Message(TypedDict):
@@ -83,7 +86,7 @@ class ChatState(rx.State):
         self.dump_key_storage(storage_name, current_keys)
 
     @rx.event
-    def send_text(self, form_data: dict[str, str]) -> None:
+    def send_text(self, form_data: dict[str, str]) -> Generator[None, None]:
         """
         Reflex Event when a text message is sent.
 
@@ -92,6 +95,9 @@ class ChatState(rx.State):
         """
         message = form_data.get("message", "").strip()
         if message:
+            # Sending Placebo Progress Bar
+            yield ProgressState.public_message_progress
+
             message_timestamp = datetime.now(UTC).timestamp()
             # Appending new own message
             self.messages.append(
@@ -105,6 +111,8 @@ class ChatState(rx.State):
                     timestamp=message_timestamp,
                 )
             )
+            yield
+
             # Posting message to backend
             message_format = MessageFormat(
                 sender_id=self.user_id,
@@ -114,10 +122,15 @@ class ChatState(rx.State):
                 signing_key=self.signing_key,
                 verify_key=self.get_key_storage("verify_keys")[self.user_id],
             )
-            Backend.send_public_message(message_format)
+            # Note: We need to use threading here, even if it looks odd. This is because the
+            # Backend.send_public_message method blocks the UI thread. So we need to run it in a separate thread.
+            # Something like asyncio.to_thread or similar doesn't work here, not 100% sure why, my best guess is
+            # that it does not separate from the UI thread properly. So threading is the next best option.
+            # If you find something better, please update this.
+            threading.Thread(target=Backend.send_public_message, args=(message_format,), daemon=True).start()
 
     @rx.event
-    def send_image(self, form_data: dict[str, str]) -> None:
+    def send_image(self, form_data: dict[str, str]) -> Generator[None, None]:
         """
         Reflex Event when an image message is sent.
 
@@ -129,6 +142,9 @@ class ChatState(rx.State):
             # Temporary
             response = requests.get(message, timeout=10)
             img = Image.open(io.BytesIO(response.content))
+
+            # Sending Placebo Progress Bar
+            yield ProgressState.public_message_progress
 
             message_timestamp = datetime.now(UTC).timestamp()
             # Appending new own message
@@ -143,6 +159,8 @@ class ChatState(rx.State):
                     timestamp=message_timestamp,
                 )
             )
+            yield
+
             # Posting message to backend
             message_format = MessageFormat(
                 sender_id=self.user_id,
@@ -152,7 +170,12 @@ class ChatState(rx.State):
                 signing_key=self.signing_key,
                 verify_key=self.get_key_storage("verify_keys")[self.user_id],
             )
-            Backend.send_public_message(message_format)
+            # Note: We need to use threading here, even if it looks odd. This is because the
+            # Backend.send_public_message method blocks the UI thread. So we need to run it in a separate thread.
+            # Something like asyncio.to_thread or similar doesn't work here, not 100% sure why, my best guess is
+            # that it does not separate from the UI thread properly. So threading is the next best option.
+            # If you find something better, please update this.
+            threading.Thread(target=Backend.send_public_message, args=(message_format,), daemon=True).start()
 
     @rx.event(background=True)
     async def check_messages(self) -> None:
