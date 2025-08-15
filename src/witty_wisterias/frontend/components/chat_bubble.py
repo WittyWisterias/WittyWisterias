@@ -27,7 +27,7 @@ def chat_bubble_component(
     """
     avatar = rx.avatar(
         src=user_profile_image,
-        fallback=user_name[:2],
+        fallback=user_id[:2],
         radius="large",
         size="3",
     )

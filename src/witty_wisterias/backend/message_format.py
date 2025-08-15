@@ -58,6 +58,8 @@ class MessageFormat:
     event_type: EventType
     content: str
     timestamp: float
+    sender_username: str = field(default="")
+    sender_profile_image: str = field(default="")
     receiver_id: str = field(default="None")
     signing_key: str = field(default="")
     verify_key: str = field(default="")
@@ -73,12 +75,12 @@ class MessageFormat:
                 "sender_id": self.sender_id,
                 "receiver_id": self.receiver_id,
                 "event_type": self.event_type.name,
+                "timestamp": self.timestamp,
                 "signing_key": self.signing_key,
                 "verify_key": self.verify_key,
                 "own_public_key": self.own_public_key,
                 "private_key": self.private_key,
                 "receiver_public_key": self.receiver_public_key,
-                "timestamp": self.timestamp,
             },
             "body": {"content": self.content, "extra_event_info": self.extra_event_info.to_dict()},
         }

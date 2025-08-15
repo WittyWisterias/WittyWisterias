@@ -208,6 +208,18 @@ class ChatState(rx.State):
         yield
 
     @rx.event
+    def edit_user_info(self, form_data: dict[str, str]) -> Generator[None, None]:
+        """
+        Reflex Event when the user information is edited.
+
+        Args:
+            form_data (dict[str, str]): The form data containing the user information.
+        """
+        self.user_name = form_data.get("user_name", "").strip()
+        self.user_profile_image = form_data.get("user_profile_image", "").strip() or None
+        yield
+
+    @rx.event
     def select_chat(self, chat_name: str) -> Generator[None, None]:
         """
         Reflex Event when a chat is selected.
@@ -255,6 +267,8 @@ class ChatState(rx.State):
                 timestamp=message_timestamp,
                 signing_key=self.signing_key,
                 verify_key=self.get_key_storage("verify_keys")[self.user_id],
+                sender_username=self.user_name,
+                sender_profile_image=self.user_profile_image,
             )
             # Note: We need to use threading here, even if it looks odd. This is because the
             # Backend.send_public_message method blocks the UI thread. So we need to run it in a separate thread.
@@ -304,6 +318,8 @@ class ChatState(rx.State):
                 timestamp=message_timestamp,
                 signing_key=self.signing_key,
                 verify_key=self.get_key_storage("verify_keys")[self.user_id],
+                sender_username=self.user_name,
+                sender_profile_image=self.user_profile_image,
             )
             # Note: We need to use threading here, even if it looks odd. This is because the
             # Backend.send_public_message method blocks the UI thread. So we need to run it in a separate thread.
@@ -365,6 +381,8 @@ class ChatState(rx.State):
                 own_public_key=self.get_key_storage("public_keys")[self.user_id],
                 receiver_public_key=self.get_key_storage("public_keys")[receiver_id],
                 private_key=self.private_key,
+                sender_username=self.user_name,
+                sender_profile_image=self.user_profile_image,
             )
             # Note: We need to use threading here, even if it looks odd. This is because the
             # Backend.send_private_message method blocks the UI thread. So we need to run it in a separate thread.
@@ -429,6 +447,8 @@ class ChatState(rx.State):
                 own_public_key=self.get_key_storage("public_keys")[self.user_id],
                 receiver_public_key=self.get_key_storage("public_keys")[receiver_id],
                 private_key=self.private_key,
+                sender_username=self.user_name,
+                sender_profile_image=self.user_profile_image,
             )
             # Note: We need to use threading here, even if it looks odd. This is because the
             # Backend.send_private_message method blocks the UI thread. So we need to run it in a separate thread.

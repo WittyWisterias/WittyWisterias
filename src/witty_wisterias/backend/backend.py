@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from .cryptographer import Cryptographer
 from .database import Database
 from .exceptions import InvalidDataError
-from .message_format import EventType, MessageFormat
+from .message_format import EventType, ExtraEventInfo, MessageFormat
 
 
 @dataclass
@@ -149,6 +149,10 @@ class Backend:
             event_type=message.event_type,
             content=signed_message,
             timestamp=message.timestamp,
+            extra_event_info=ExtraEventInfo(
+                user_name=message.sender_username,
+                user_image=message.sender_profile_image,
+            ),
         )
 
         queried_data.message_stack.append(public_message)
@@ -191,6 +195,10 @@ class Backend:
             event_type=message.event_type,
             content=encrypted_message,
             timestamp=message.timestamp,
+            extra_event_info=ExtraEventInfo(
+                user_name=message.sender_username,
+                user_image=message.sender_profile_image,
+            ),
         )
 
         queried_data.message_stack.append(private_message)
