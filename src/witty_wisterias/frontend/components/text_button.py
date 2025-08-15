@@ -3,6 +3,41 @@ import reflex as rx
 from frontend.states.chat_state import ChatState
 
 
+def text_form() -> rx.Component:
+    """
+    Form for sending a text message.
+
+    Returns:
+        rx.Component: The Text form component.
+    """
+    return rx.vstack(
+        rx.text_area(
+            placeholder="Write your text here...",
+            size="3",
+            rows="5",
+            name="message",
+            required=True,
+            variant="surface",
+            class_name="w-full",
+        ),
+        rx.hstack(
+            rx.dialog.close(
+                rx.button(
+                    "Cancel",
+                    variant="soft",
+                    color_scheme="gray",
+                ),
+            ),
+            rx.dialog.close(
+                rx.button("Send", type="submit"),
+            ),
+        ),
+        spacing="3",
+        margin_top="16px",
+        justify="end",
+    )
+
+
 def send_text_component() -> rx.Component:
     """The dialog (and button) for sending texts"""
     # TODO: This should be replaced with the Webcam handler, text will do for now
@@ -22,33 +57,16 @@ def send_text_component() -> rx.Component:
                 size="2",
                 margin_bottom="16px",
             ),
-            rx.form(
-                rx.flex(
-                    rx.text_area(
-                        placeholder="Write your text here...",
-                        size="3",
-                        rows="5",
-                        name="message",
-                        required=True,
-                        variant="surface",
-                        class_name="w-full",
-                    ),
-                    rx.dialog.close(
-                        rx.button(
-                            "Cancel",
-                            variant="soft",
-                            color_scheme="gray",
-                        ),
-                    ),
-                    rx.dialog.close(
-                        rx.button("Send", type="submit"),
-                    ),
-                    spacing="3",
-                    margin_top="16px",
-                    justify="end",
+            rx.cond(
+                ChatState.selected_chat == "Public",
+                rx.form(
+                    text_form(),
+                    on_submit=ChatState.send_public_text,
                 ),
-                on_submit=ChatState.send_text,
-                reset_on_submit=False,
+                rx.form(
+                    text_form(),
+                    on_submit=ChatState.send_private_text,
+                ),
             ),
         ),
     )

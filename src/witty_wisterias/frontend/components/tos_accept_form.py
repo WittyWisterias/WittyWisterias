@@ -10,7 +10,7 @@ def tos_accept_form() -> rx.Component:
             rx.text("You hereby accept the Terms of Service of:"),
             rx.hstack(
                 rx.link("freeocr.ai", href="https://freeocr.ai/terms-of-service"),
-                rx.link("aihorde.net", href="https://aihorde.net/terms"),
+                rx.link("pollinations.ai", href="https://pollinations.ai/terms"),
                 rx.link("freeimghost.net", href="https://freeimghost.net/page/tos"),
                 align="center",
                 justify="center",

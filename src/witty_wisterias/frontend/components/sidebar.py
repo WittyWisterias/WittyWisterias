@@ -1,5 +1,6 @@
 import reflex as rx
 
+from frontend.components.create_chat import create_chat_component
 from frontend.states.chat_state import ChatState
 from frontend.states.progress_state import ProgressState
 
@@ -24,22 +25,32 @@ def chat_sidebar() -> rx.Component:
                 variant="surface",
                 size="3",
                 class_name="w-full justify-center bg-gray-100 hover:bg-gray-200",
+                on_click=ChatState.select_chat("Public"),
             ),
             rx.divider(),
-            rx.heading("Private Chats", size="2", class_name="text-gray-500"),
-            rx.button(
-                "Private Chat 1",
-                color_scheme="teal",
-                variant="surface",
-                size="3",
-                class_name="w-full justify-center bg-gray-100 hover:bg-gray-200",
+            rx.hstack(
+                rx.heading("Private Chats", size="2", class_name="text-gray-500"),
+                create_chat_component(
+                    rx.button(
+                        rx.icon("circle-plus", size=16, class_name="text-gray-500"),
+                        class_name="bg-white",
+                    )
+                ),
+                spacing="2",
+                align="center",
+                justify="between",
+                class_name="w-full mb-0",
             ),
-            rx.button(
-                "Private Chat 2",
-                color_scheme="teal",
-                variant="surface",
-                size="3",
-                class_name="w-full justify-center bg-gray-100 hover:bg-gray-200",
+            rx.foreach(
+                ChatState.chat_partners,
+                lambda user_id: rx.button(
+                    f"Private: {user_id}",
+                    color_scheme="teal",
+                    variant="surface",
+                    size="3",
+                    class_name="w-full justify-center bg-gray-100 hover:bg-gray-200",
+                    on_click=ChatState.select_chat(user_id),
+                ),
             ),
             rx.vstack(
                 rx.heading(ProgressState.progress, size="2", class_name="text-gray-500"),
