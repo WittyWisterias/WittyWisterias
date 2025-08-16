@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from .cryptographer import Cryptographer
 from .database import Database
 from .exceptions import InvalidDataError
-from .message_format import MessageFormat
+from .message_format import EventType, ExtraEventInfo, MessageFormat
 
 
 @dataclass
@@ -90,20 +90,56 @@ class Backend:
         return base64.b64encode(compressed_stack).decode("utf-8")
 
     @staticmethod
-    def send_public_text(message: MessageFormat) -> None:
+    def push_public_keys(user_id: str, verify_key: str, public_key: str) -> None:
+        """
+        Push public keys to the Upload Stack.
+
+        Args:
+            user_id (str): The ID of the user.
+            verify_key (str): The verify key of the user.
+            public_key (str): The public key of the user.
+        """
+        queried_data = Backend.decode(Database.query_data())
+
+        # Append the verify_key to the Upload Stack if not already present
+        if user_id not in queried_data.verify_keys_stack:
+            queried_data.verify_keys_stack[user_id] = verify_key
+
+        # Append the public_key to the Upload Stack if not already present
+        if user_id not in queried_data.public_keys_stack:
+            queried_data.public_keys_stack[user_id] = public_key
+
+        Database.upload_data(Backend.encode(queried_data))
+
+    @staticmethod
+    def read_public_keys() -> tuple[dict[str, str], dict[str, str]]:
+        """
+        Read verify and public keys from the Upload Stack.
+
+        Returns:
+            dict[str, str]: A dictionary containing user IDs as keys and their verify keys as values.
+            dict[str, str]: A dictionary containing user IDs as keys and their public keys as values.
+        """
+        queried_data = Backend.decode(Database.query_data())
+        return queried_data.verify_keys_stack, queried_data.public_keys_stack
+
+    @staticmethod
+    def send_public_message(message: MessageFormat) -> None:
         """
         Send a public test message to the Database.
 
         Args:
             message (MessageFormat): The message to be sent, containing senderID, event type, content, and signing key.
         """
-        if not (message.sender_id and message.event_type and message.content and message.signing_key):
+        if not (
+            message.sender_id and message.event_type and message.content and message.timestamp and message.signing_key
+        ):
             raise InvalidDataError("MessageFormat is not complete")
 
         queried_data = Backend.decode(Database.query_data())
 
         # Append the verify_key to the Upload Stack if not already present
-        if message.verify_key not in queried_data.verify_keys_stack:
+        if message.sender_id not in queried_data.verify_keys_stack:
             queried_data.verify_keys_stack[message.sender_id] = message.verify_key
 
         # Sign the message using the Signing Key
@@ -113,6 +149,10 @@ class Backend:
             event_type=message.event_type,
             content=signed_message,
             timestamp=message.timestamp,
+            extra_event_info=ExtraEventInfo(
+                user_name=message.sender_username,
+                user_image=message.sender_profile_image,
+            ),
         )
 
         queried_data.message_stack.append(public_message)
@@ -120,7 +160,53 @@ class Backend:
         Database.upload_data(Backend.encode(queried_data))
 
     @staticmethod
-    def read_public_text() -> list[MessageFormat]:
+    def send_private_message(message: MessageFormat) -> None:
+        """
+        Send a private message to the Database.
+
+        Args:
+            message (MessageFormat): The message to be sent, containing senderID, event type, content, and signing key.
+        """
+        if not (
+            message.sender_id
+            and message.receiver_id
+            and message.event_type
+            and message.content
+            and message.timestamp
+            and message.own_public_key
+            and message.receiver_public_key
+            and message.private_key
+        ):
+            raise InvalidDataError("MessageFormat is not complete")
+
+        queried_data = Backend.decode(Database.query_data())
+
+        # Append own Public Key to the Upload Stack if not already present
+        if message.sender_id not in queried_data.public_keys_stack:
+            queried_data.public_keys_stack[message.sender_id] = message.own_public_key
+
+        # Encrypt the message content using the receiver's public key
+        encrypted_message = Cryptographer.encrypt_message(
+            message.content, message.private_key, message.receiver_public_key
+        )
+        private_message = MessageFormat(
+            sender_id=message.sender_id,
+            receiver_id=message.receiver_id,
+            event_type=message.event_type,
+            content=encrypted_message,
+            timestamp=message.timestamp,
+            extra_event_info=ExtraEventInfo(
+                user_name=message.sender_username,
+                user_image=message.sender_profile_image,
+            ),
+        )
+
+        queried_data.message_stack.append(private_message)
+
+        Database.upload_data(Backend.encode(queried_data))
+
+    @staticmethod
+    def read_public_messages() -> list[MessageFormat]:
         """
         Read public text messages.
         This method should be overridden by the backend.
@@ -129,8 +215,13 @@ class Backend:
 
         verified_messaged: list[MessageFormat] = []
         for message in decoded_data.message_stack:
+            if isinstance(message, str):
+                continue
+            # Checking if the message is a public message
+            if message.event_type not in (EventType.PUBLIC_TEXT, EventType.PUBLIC_IMAGE):
+                continue
             # Signature Verification
-            if not isinstance(message, str) and message.sender_id in decoded_data.verify_keys_stack:
+            if message.sender_id in decoded_data.verify_keys_stack:
                 verify_key = decoded_data.verify_keys_stack[message.sender_id]
                 try:
                     # Verify the message content using the verify key
@@ -140,3 +231,38 @@ class Backend:
                     pass
 
         return verified_messaged
+
+    @staticmethod
+    def read_private_messages(user_id: str, private_key: str) -> list[MessageFormat]:
+        """
+        Read private messages for a specific receiver.
+        This method should be overridden by the backend.
+
+        Args:
+            user_id (str): The ID of own user which tries to read private messages.
+            private_key (str): The private key of the receiver used for decrypting messages.
+
+        Returns:
+            list[MessageFormat]: A list of decrypted private messages for the specified receiver.
+        """
+        decoded_data = Backend.decode(Database.query_data())
+
+        decrypted_messages: list[MessageFormat] = []
+        for message in decoded_data.message_stack:
+            if isinstance(message, str):
+                continue
+            # Checking if the message is a private message
+            if message.event_type not in (EventType.PRIVATE_TEXT, EventType.PRIVATE_IMAGE):
+                continue
+            # Message Decryption check
+            if message.receiver_id == user_id and message.sender_id in decoded_data.public_keys_stack:
+                try:
+                    sender_public_key = decoded_data.public_keys_stack[message.sender_id]
+                    # Decrypt the message content using the receiver's private key
+                    decrypted_content = Cryptographer.decrypt_message(message.content, private_key, sender_public_key)
+                    message.content = decrypted_content
+                    decrypted_messages.append(message)
+                except ValueError:
+                    pass
+
+        return decrypted_messages

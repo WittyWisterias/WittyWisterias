@@ -17,7 +17,7 @@ class EventType(Enum):
     SET_PROFILEPICTURE = auto()
 
 
-class MessageJson(TypedDict):
+class MessageFormatJson(TypedDict):
     """
     Defines the structure of the JSON representation of a message.
     This is used for serialization and deserialization of messages.
@@ -58,25 +58,29 @@ class MessageFormat:
     event_type: EventType
     content: str
     timestamp: float
+    sender_username: str = field(default="")
+    sender_profile_image: str = field(default="")
     receiver_id: str = field(default="None")
     signing_key: str = field(default="")
     verify_key: str = field(default="")
+    own_public_key: str = field(default="")
+    receiver_public_key: str = field(default="")
     private_key: str = field(default="")
-    public_key: str = field(default="")
     extra_event_info: ExtraEventInfo = field(default_factory=ExtraEventInfo)
 
-    def to_dict(self) -> MessageJson:
+    def to_dict(self) -> MessageFormatJson:
         """Convert the message into a Python dictionary."""
         return {
             "header": {
                 "sender_id": self.sender_id,
                 "receiver_id": self.receiver_id,
                 "event_type": self.event_type.name,
+                "timestamp": self.timestamp,
                 "signing_key": self.signing_key,
                 "verify_key": self.verify_key,
-                "public_key": self.public_key,
+                "own_public_key": self.own_public_key,
                 "private_key": self.private_key,
-                "timestamp": self.timestamp,
+                "receiver_public_key": self.receiver_public_key,
             },
             "body": {"content": self.content, "extra_event_info": self.extra_event_info.to_dict()},
         }
@@ -95,7 +99,8 @@ class MessageFormat:
             event_type=EventType[obj["header"]["event_type"]],
             signing_key=obj["header"].get("signing_key"),
             verify_key=obj["header"].get("verify_key"),
-            public_key=obj["header"].get("public_key"),
+            own_public_key=obj["header"].get("own_public_key"),
+            receiver_public_key=obj["header"].get("receiver_public_key"),
             private_key=obj["header"].get("private_key"),
             timestamp=obj["header"]["timestamp"],
             content=obj["body"]["content"],
