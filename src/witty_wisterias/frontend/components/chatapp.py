@@ -16,6 +16,7 @@ def chat_specific_messages(message: Message) -> rx.Component:
     Returns:
         rx.Component: A component representing the chat bubble for the message, if it fits.
     """
+    # Storing Message/User Attributes for easier access
     user_id = message.get("user_id")
     receiver_id = message.get("receiver_id")
     selected_chat = ChatState.selected_chat
@@ -49,7 +50,12 @@ def chat_specific_messages(message: Message) -> rx.Component:
 
 
 def chat_app() -> rx.Component:
-    """Main chat application component."""
+    """
+    Main chat application component.
+
+    Returns:
+        rx.Component: The main chat application component.
+    """
     return rx.vstack(
         rx.heading(
             rx.cond(
@@ -69,11 +75,7 @@ def chat_app() -> rx.Component:
             class_name="flex flex-col gap-4 pb-6 pt-3 h-full w-full bg-gray-50 p-5 rounded-xl shadow-sm",
         ),
         rx.divider(),
-        rx.hstack(
-            send_text_component(),
-            send_image_component(),
-            class_name="mt-auto mb-3 w-full",
-        ),
+        rx.hstack(send_text_component(), send_image_component(), class_name="mt-auto mb-3 w-full"),
         spacing="4",
         class_name="h-screen w-full mx-5",
     )

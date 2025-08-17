@@ -43,10 +43,7 @@ class UploadStack:
 
 
 class Backend:
-    """
-    Base class for the backend.
-    This class should be inherited by all backends.
-    """
+    """Base class for the backend, which is used by the Frontend to handle Messages."""
 
     @staticmethod
     def decode(encoded_stack: str) -> UploadStack:
@@ -59,6 +56,7 @@ class Backend:
         Returns:
             list[MessageFormat]: A list of MessageFormat objects reconstructed from the decoded data.
         """
+        # Check if the Message Stack is completely empty
         if not encoded_stack:
             return UploadStack()
         compressed_stack = base64.b64decode(encoded_stack.encode("utf-8"))
@@ -99,6 +97,7 @@ class Backend:
             verify_key (str): The verify key of the user.
             public_key (str): The public key of the user.
         """
+        # Query the latest Data from the Database
         queried_data = Backend.decode(Database.query_data())
 
         # Append the verify_key to the Upload Stack if not already present
@@ -109,6 +108,7 @@ class Backend:
         if user_id not in queried_data.public_keys_stack:
             queried_data.public_keys_stack[user_id] = public_key
 
+        # Upload the new Data to save it in the Database
         Database.upload_data(Backend.encode(queried_data))
 
     @staticmethod
@@ -120,6 +120,7 @@ class Backend:
             dict[str, str]: A dictionary containing user IDs as keys and their verify keys as values.
             dict[str, str]: A dictionary containing user IDs as keys and their public keys as values.
         """
+        # Query the latest Data from the Database
         queried_data = Backend.decode(Database.query_data())
         return queried_data.verify_keys_stack, queried_data.public_keys_stack
 
@@ -131,11 +132,10 @@ class Backend:
         Args:
             message (MessageFormat): The message to be sent, containing senderID, event type, content, and signing key.
         """
-        if not (
-            message.sender_id and message.event_type and message.content and message.timestamp and message.signing_key
-        ):
+        if not (message.sender_id and message.event_type and message.content and message.signing_key):
             raise InvalidDataError("MessageFormat is not complete")
 
+        # Query the latest Data from the Backend
         queried_data = Backend.decode(Database.query_data())
 
         # Append the verify_key to the Upload Stack if not already present
@@ -144,6 +144,7 @@ class Backend:
 
         # Sign the message using the Signing Key
         signed_message = Cryptographer.sign_message(message.content, message.signing_key)
+        # Create the Public Message to push
         public_message = MessageFormat(
             sender_id=message.sender_id,
             event_type=message.event_type,
@@ -155,8 +156,10 @@ class Backend:
             ),
         )
 
+        # Push the new Public Message to the Message Stack
         queried_data.message_stack.append(public_message)
 
+        # Upload the new Data to save it in the Database
         Database.upload_data(Backend.encode(queried_data))
 
     @staticmethod
@@ -179,6 +182,7 @@ class Backend:
         ):
             raise InvalidDataError("MessageFormat is not complete")
 
+        # Query the latest Data from the Database
         queried_data = Backend.decode(Database.query_data())
 
         # Append own Public Key to the Upload Stack if not already present
@@ -189,6 +193,7 @@ class Backend:
         encrypted_message = Cryptographer.encrypt_message(
             message.content, message.private_key, message.receiver_public_key
         )
+        # Create the Private Message to push
         private_message = MessageFormat(
             sender_id=message.sender_id,
             receiver_id=message.receiver_id,
@@ -201,28 +206,34 @@ class Backend:
             ),
         )
 
+        # Push the new Public Message to the Message Stack
         queried_data.message_stack.append(private_message)
 
+        # Upload the new Data to save it in the Database
         Database.upload_data(Backend.encode(queried_data))
 
     @staticmethod
     def read_public_messages() -> list[MessageFormat]:
         """
         Read public text messages.
-        This method should be overridden by the backend.
-        """
-        decoded_data = Backend.decode(Database.query_data())
 
+        Returns:
+            list[MessageFormat]: A list of verified public messages.
+        """
+        # Query the latest Data from the Database
+        queried_data = Backend.decode(Database.query_data())
+
+        # Only verifiable Messages should be displayed
         verified_messaged: list[MessageFormat] = []
-        for message in decoded_data.message_stack:
+        for message in queried_data.message_stack:
             if isinstance(message, str):
                 continue
             # Checking if the message is a public message
             if message.event_type not in (EventType.PUBLIC_TEXT, EventType.PUBLIC_IMAGE):
                 continue
             # Signature Verification
-            if message.sender_id in decoded_data.verify_keys_stack:
-                verify_key = decoded_data.verify_keys_stack[message.sender_id]
+            if message.sender_id in queried_data.verify_keys_stack:
+                verify_key = queried_data.verify_keys_stack[message.sender_id]
                 try:
                     # Verify the message content using the verify key
                     message.content = Cryptographer.verify_message(message.content, verify_key)
@@ -236,7 +247,6 @@ class Backend:
     def read_private_messages(user_id: str, private_key: str) -> list[MessageFormat]:
         """
         Read private messages for a specific receiver.
-        This method should be overridden by the backend.
 
         Args:
             user_id (str): The ID of own user which tries to read private messages.
@@ -245,20 +255,22 @@ class Backend:
         Returns:
             list[MessageFormat]: A list of decrypted private messages for the specified receiver.
         """
-        decoded_data = Backend.decode(Database.query_data())
+        # Query the latest Data from the Database
+        queried_data = Backend.decode(Database.query_data())
 
+        # Only decryptable Messages should be displayed
         decrypted_messages: list[MessageFormat] = []
-        for message in decoded_data.message_stack:
+        for message in queried_data.message_stack:
             if isinstance(message, str):
                 continue
             # Checking if the message is a private message
             if message.event_type not in (EventType.PRIVATE_TEXT, EventType.PRIVATE_IMAGE):
                 continue
             # Message Decryption check
-            if message.receiver_id == user_id and message.sender_id in decoded_data.public_keys_stack:
+            if message.receiver_id == user_id and message.sender_id in queried_data.public_keys_stack:
                 try:
-                    sender_public_key = decoded_data.public_keys_stack[message.sender_id]
-                    # Decrypt the message content using the receiver's private key
+                    sender_public_key = queried_data.public_keys_stack[message.sender_id]
+                    # Decrypt the message content using the receiver's private key and the sender's public key
                     decrypted_content = Cryptographer.decrypt_message(message.content, private_key, sender_public_key)
                     message.content = decrypted_content
                     decrypted_messages.append(message)

@@ -16,16 +16,11 @@ from .exceptions import InvalidResponseError
 HTTP_SESSION = httpx.Client(timeout=30)
 
 # Image Hoster URL and API Endpoints
-HOSTER_URL = "https://freeimghost.net/"
-UPLOAD_URL = HOSTER_URL + "upload"
-JSON_URL = HOSTER_URL + "json"
+HOSTER_URL = "https://freeimghost.net"
+UPLOAD_URL = HOSTER_URL + "/upload"
+JSON_URL = HOSTER_URL + "/json"
 # Search Term used to query for our images (and name our files)
 FILE_SEARCH_TERM = "WittyWisteriasV7"
-
-
-def search_url(query: str) -> str:
-    """Insert the query into the url and return it"""
-    return HOSTER_URL + f"search/images/?q={query}"
 
 
 class Database:
@@ -169,7 +164,7 @@ class Database:
             InvalidResponseError: If the query fails or the response is not as expected.
         """
         # Query all images with the FILE_SEARCH_TERM from the image hosting service
-        response = HTTP_SESSION.get(search_url(FILE_SEARCH_TERM))
+        response = HTTP_SESSION.get(f"{HOSTER_URL}/search/images/?q={FILE_SEARCH_TERM}")
         # Check if the response is successful
         if response.status_code != 200:
             raise InvalidResponseError("Failed to query latest image from the image hosting service.")
@@ -223,10 +218,3 @@ class Database:
         image_bytes = Database.base64_to_image(bytes_data)
         # Upload the image bytes to the Image Hosting Service
         Database.upload_image(image_bytes)
-
-
-if __name__ == "__main__":
-    # Example/Testing usage
-    db = Database()
-    db.upload_data("Hello, World! Witty Wisterias here.")
-    print(db.query_data())

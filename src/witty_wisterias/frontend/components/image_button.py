@@ -21,16 +21,8 @@ def image_form() -> rx.Component:
             class_name="w-full",
         ),
         rx.hstack(
-            rx.dialog.close(
-                rx.button(
-                    "Cancel",
-                    variant="soft",
-                    color_scheme="gray",
-                ),
-            ),
-            rx.dialog.close(
-                rx.button("Send", type="submit"),
-            ),
+            rx.dialog.close(rx.button("Cancel", variant="soft", color_scheme="gray")),
+            rx.dialog.close(rx.button("Send", type="submit")),
         ),
         spacing="3",
         margin_top="16px",
@@ -39,7 +31,12 @@ def image_form() -> rx.Component:
 
 
 def send_image_component() -> rx.Component:
-    """The dialog (and button) for sending an image"""
+    """
+    The dialog (and button) for sending an image
+
+    Returns:
+        rx.Component: The Image Button Component, which triggers the Image Message Form.
+    """
     return rx.dialog.root(
         rx.dialog.trigger(
             rx.button(
