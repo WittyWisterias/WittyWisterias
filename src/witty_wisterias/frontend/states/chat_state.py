@@ -372,8 +372,8 @@ class ChatState(rx.State):
                 for message in Backend.read_public_messages():
                     # Check if the message is already in the chat using timestamp
                     message_exists = any(
-                        msg["timestamp"] == message.timestamp and msg["user_id"] == message.sender_id
-                        for msg in self.messages
+                        all_messages.timestamp == message.timestamp and all_messages.timestamp == message.sender_id
+                        for all_messages in self.messages
                     )
 
                     # Check if message is not already in the chat

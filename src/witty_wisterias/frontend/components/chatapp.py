@@ -1,12 +1,13 @@
 import reflex as rx
+from backend.message_format import MessageState
 
 from frontend.components.chat_bubble import chat_bubble_component
 from frontend.components.image_button import send_image_component
 from frontend.components.text_button import send_text_component
-from frontend.states.chat_state import ChatState, Message
+from frontend.states.chat_state import ChatState
 
 
-def chat_specific_messages(message: Message) -> rx.Component:
+def chat_specific_messages(message: MessageState) -> rx.Component:
     """
     Returns the correct chat bubble if the message is for the selected chat.
 
