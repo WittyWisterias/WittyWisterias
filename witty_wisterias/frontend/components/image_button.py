@@ -3,16 +3,16 @@ import reflex as rx
 from frontend.states.chat_state import ChatState
 
 
-def text_form() -> rx.Component:
+def image_form() -> rx.Component:
     """
-    Form for sending a text message.
+    Form for sending an image message.
 
     Returns:
-        rx.Component: The Text form component.
+        rx.Component: The Image form component.
     """
     return rx.vstack(
         rx.text_area(
-            placeholder="Write your text here...",
+            placeholder="Describe it here...",
             size="3",
             rows="5",
             name="message",
@@ -30,39 +30,38 @@ def text_form() -> rx.Component:
     )
 
 
-def send_text_component() -> rx.Component:
+def send_image_component() -> rx.Component:
     """
-    The dialog (and button) for sending texts.
+    The dialog (and button) for sending an image
 
     Returns:
-        rx.Component: The Text Button Component, which triggers the Text Message Form.
+        rx.Component: The Image Button Component, which triggers the Image Message Form.
     """
-    # TODO: This should be replaced with the Webcam handler, text will do for now
     return rx.dialog.root(
         rx.dialog.trigger(
             rx.button(
-                rx.center(rx.text("Send Text")),
+                rx.center(rx.text("Send Image")),
                 padding="24px",
                 radius="large",
-                flex=1,
+                width="100%",
             ),
         ),
         rx.dialog.content(
-            rx.dialog.title("Send Text (TEMP)"),
+            rx.dialog.title("Send Image"),
             rx.dialog.description(
-                "Send a text message to the chat. This is a temp feature until the webcam handler is implemented.",
+                "Send an image by describing it in the box below. It will be generated using AI and sent to the chat.",
                 size="2",
                 margin_bottom="16px",
             ),
             rx.cond(
                 ChatState.selected_chat == "Public",
                 rx.form(
-                    text_form(),
-                    on_submit=ChatState.send_public_text,
+                    image_form(),
+                    on_submit=ChatState.send_public_image,
                 ),
                 rx.form(
-                    text_form(),
-                    on_submit=ChatState.send_private_text,
+                    image_form(),
+                    on_submit=ChatState.send_private_image,
                 ),
             ),
         ),

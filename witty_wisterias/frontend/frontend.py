@@ -1,12 +1,13 @@
 import reflex as rx
 
+from frontend.app_config import app  # noqa: F401
 from frontend.components.chatapp import chat_app
 from frontend.components.sidebar import chat_sidebar
 from frontend.components.tos_accept_form import tos_accept_form
 from frontend.states.chat_state import ChatState
 
 
-@rx.page(on_load=ChatState.startup_event)
+@rx.page(title="ShitChat by Witty Wisterias", on_load=ChatState.startup_event)
 def index() -> rx.Component:
     """The main page of the chat application, which includes the sidebar and chat app components."""
     return rx.cond(
@@ -19,16 +20,3 @@ def index() -> rx.Component:
             class_name="overflow-hidden h-screen w-full",
         ),
     )
-
-
-app = rx.App(
-    theme=rx.theme(appearance="light", has_background=True, radius="large", accent_color="teal"),
-    stylesheets=[
-        "https://fonts.googleapis.com/css2?family=Bitcount+Prop+Single:slnt,wght@-8,600&display=swapp",
-    ],
-    style={
-        "font_family": "Bitcount Prop Single",
-        "background_color": "white",
-    },
-)
-app.add_page(index)

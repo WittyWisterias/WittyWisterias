@@ -1,30 +1,34 @@
 import asyncio
+import base64
 import io
 import json
-import threading
 from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import reflex as rx
-import requests
 from backend.backend import Backend
 from backend.cryptographer import Cryptographer
 from backend.message_format import EventType, MessageFormat, MessageState
+from backend.user_input_handler import UserInputHandler
 from PIL import Image
 
+from frontend.app_config import app
 from frontend.states.progress_state import ProgressState
+from frontend.states.webcam_state import WebcamStateMixin
 
 
-class ChatState(rx.State):
+class ChatState(WebcamStateMixin, rx.State):
     """The Chat app state, used to handle Messages. Main Frontend Entrypoint."""
 
     # Tos Accepted (Note: We need to use a string here because LocalStorage does not support booleans)
     tos_accepted: str = rx.LocalStorage("False", name="tos_accepted", sync=True)
+
     # List of Messages
     messages: list[MessageState] = rx.field(default_factory=list)
     # We need to store our own private messages in LocalStorage, as we cannot decrypt them from the Database
     own_private_messages: str = rx.LocalStorage("[]", name="private_messages", sync=True)
+
     # Chat Partners
     chat_partners: list[str] = rx.field(default_factory=list)
     # Current Selected Chat
@@ -33,7 +37,8 @@ class ChatState(rx.State):
     # Own User Data
     user_id: str = rx.LocalStorage("", name="user_id", sync=True)
     user_name: str = rx.LocalStorage("", name="user_name", sync=True)
-    user_profile_image: str | None = rx.LocalStorage(None, name="user_profile_image", sync=True)
+    user_profile_image: str = rx.LocalStorage("", name="user_profile_image", sync=True)
+
     # Own Signing key and Others Verify Keys for Global Chat
     signing_key: str = rx.LocalStorage("", name="signing_key", sync=True)
     verify_keys_storage: str = rx.LocalStorage("{}", name="verify_keys_storage", sync=True)
@@ -105,7 +110,7 @@ class ChatState(rx.State):
         yield
 
     @rx.event
-    def edit_user_info(self, form_data: dict[str, str]) -> Generator[None, None]:
+    def edit_user_info(self, form_data: dict[str, Any]) -> Generator[None, None]:
         """
         Reflex Event when the user information is edited.
 
@@ -114,7 +119,7 @@ class ChatState(rx.State):
         """
         self.user_name = form_data.get("user_name", "").strip()
         # A User Profile Image is not required in the Form.
-        self.user_profile_image = form_data.get("user_profile_image", "").strip() or None
+        self.user_profile_image = form_data.get("user_profile_image", "").strip()
         yield
 
     @rx.event
@@ -129,14 +134,29 @@ class ChatState(rx.State):
         yield
 
     @rx.event
-    def send_public_text(self, form_data: dict[str, str]) -> Generator[None, None]:
+    def start_webcam(self, _: dict[str, str]) -> Generator[None, None]:
+        """
+        Start the webcam capture loop.
+
+        Args:
+            _ (dict[str, str]): The form data containing the message in the `message` field. Unused.
+        """
+        self.recording = True
+        yield ChatState.capture_loop
+
+    @rx.event
+    async def send_public_text(self, _: dict[str, Any]) -> AsyncGenerator[None, None]:
         """
         Reflex Event when a text message is sent.
 
         Args:
-            form_data (dict[str, str]): The form data containing the message in the `message` field.
+            _ (dict[str, str]): The form data containing the message in the `message` field. Unused.
         """
-        message = form_data.get("message", "").strip()
+        # Stop Webcam Stream
+        ChatState.disable_webcam()
+        # Converting last Webcam Frame to Text
+        message = UserInputHandler.image_to_text(str(self.frame_data))
+
         if message:
             # Sending Placebo Progress Bar
             yield ProgressState.public_message_progress
@@ -148,6 +168,7 @@ class ChatState(rx.State):
                     message=message,
                     user_id=self.user_id,
                     user_name=self.user_name,
+                    receiver_id=None,
                     user_profile_image=self.user_profile_image,
                     own_message=True,
                     is_image_message=False,
@@ -167,15 +188,13 @@ class ChatState(rx.State):
                 sender_username=self.user_name,
                 sender_profile_image=self.user_profile_image,
             )
-            # Note: We need to use threading here, even if it looks odd. This is because the
-            # Backend.send_public_message method blocks the UI thread. So we need to run it in a separate thread.
-            # Something like asyncio.to_thread or similar doesn't work here, not 100% sure why, my best guess is
-            # that it does not separate from the UI thread properly. So threading is the next best option.
-            # If you find something better, please update this.
-            threading.Thread(target=Backend.send_public_message, args=(message_format,), daemon=True).start()
+            # To not block the UI thread, we run this in an executor before the async with self.
+            loop = asyncio.get_running_loop()
+            # Send the Message without blocking the UI thread.
+            await loop.run_in_executor(None, Backend.send_public_message, message_format)
 
     @rx.event
-    def send_public_image(self, form_data: dict[str, str]) -> Generator[None, None]:
+    async def send_public_image(self, form_data: dict[str, Any]) -> AsyncGenerator[None, None]:
         """
         Reflex Event when an image message is sent.
 
@@ -184,9 +203,12 @@ class ChatState(rx.State):
         """
         message = form_data.get("message", "").strip()
         if message:
-            # Temporary
-            response = requests.get(message, timeout=10)
-            img = Image.open(io.BytesIO(response.content))
+            # Converting the Image Description to an Image
+            base64_image = UserInputHandler.text_to_image(message)
+            # Decode the Base64 string to bytes
+            image_data = base64.b64decode(base64_image)
+            # Open the image stream with PIL
+            pil_image = Image.open(io.BytesIO(image_data))
 
             # Sending Placebo Progress Bar
             yield ProgressState.public_message_progress
@@ -195,9 +217,10 @@ class ChatState(rx.State):
             # Appending new own message to show in the Chat
             self.messages.append(
                 MessageState(
-                    message=img,
+                    message=pil_image,
                     user_id=self.user_id,
                     user_name=self.user_name,
+                    receiver_id=None,
                     user_profile_image=self.user_profile_image,
                     own_message=True,
                     is_image_message=True,
@@ -210,29 +233,32 @@ class ChatState(rx.State):
             message_format = MessageFormat(
                 sender_id=self.user_id,
                 event_type=EventType.PUBLIC_IMAGE,
-                content=message,
+                content=base64_image,
                 timestamp=message_timestamp,
                 signing_key=self.signing_key,
                 verify_key=self.get_key_storage("verify_keys")[self.user_id],
                 sender_username=self.user_name,
                 sender_profile_image=self.user_profile_image,
             )
-            # Note: We need to use threading here, even if it looks odd. This is because the
-            # Backend.send_public_message method blocks the UI thread. So we need to run it in a separate thread.
-            # Something like asyncio.to_thread or similar doesn't work here, not 100% sure why, my best guess is
-            # that it does not separate from the UI thread properly. So threading is the next best option.
-            # If you find something better, please update this.
-            threading.Thread(target=Backend.send_public_message, args=(message_format,), daemon=True).start()
+
+            # To not block the UI thread, we run this in an executor before the async with self.
+            loop = asyncio.get_running_loop()
+            # Send the Message without blocking the UI thread.
+            await loop.run_in_executor(None, Backend.send_public_message, message_format)
 
     @rx.event
-    def send_private_text(self, form_data: dict[str, str]) -> Generator[None, None]:
+    async def send_private_text(self, form_data: dict[str, Any]) -> AsyncGenerator[None, None]:
         """
         Reflex Event when a private text message is sent.
 
         Args:
             form_data (dict[str, str]): The form data containing the message in the `message` field.
         """
-        message = form_data.get("message", "").strip()
+        # Stop Webcam Stream
+        ChatState.disable_webcam()
+        # Converting last Webcam Frame to Text
+        message = UserInputHandler.image_to_text(str(self.frame_data))
+
         receiver_id = form_data.get("receiver_id", "").strip() or self.selected_chat
         if message and receiver_id:
             if receiver_id not in self.get_key_storage("public_keys"):
@@ -281,15 +307,14 @@ class ChatState(rx.State):
                 sender_username=self.user_name,
                 sender_profile_image=self.user_profile_image,
             )
-            # Note: We need to use threading here, even if it looks odd. This is because the
-            # Backend.send_private_message method blocks the UI thread. So we need to run it in a separate thread.
-            # Something like asyncio.to_thread or similar doesn't work here, not 100% sure why, my best guess is
-            # that it does not separate from the UI thread properly. So threading is the next best option.
-            # If you find something better, please update this.
-            threading.Thread(target=Backend.send_private_message, args=(message_format,), daemon=True).start()
+
+            # To not block the UI thread, we run this in an executor before the async with self.
+            loop = asyncio.get_running_loop()
+            # Send the Message without blocking the UI thread.
+            await loop.run_in_executor(None, Backend.send_private_message, message_format)
 
     @rx.event
-    def send_private_image(self, form_data: dict[str, str]) -> Generator[None, None]:
+    async def send_private_image(self, form_data: dict[str, Any]) -> AsyncGenerator[None, None]:
         """
         Reflex Event when a private image message is sent.
 
@@ -308,9 +333,12 @@ class ChatState(rx.State):
             self.selected_chat = receiver_id
             yield
 
-            # Temporary
-            response = requests.get(message, timeout=10)
-            img = Image.open(io.BytesIO(response.content))
+            # Converting the Image Description to an Image
+            base64_image = UserInputHandler.text_to_image(message)
+            # Decode the Base64 string to bytes
+            image_data = base64.b64decode(base64_image)
+            # Open the image stream with PIL
+            pil_image = Image.open(io.BytesIO(image_data))
 
             # Sending Placebo Progress Bar
             yield ProgressState.private_message_progress
@@ -318,7 +346,7 @@ class ChatState(rx.State):
             message_timestamp = datetime.now(UTC).timestamp()
             # Appending new own message to show in the Chat
             chat_message = MessageState(
-                message=img,
+                message=pil_image,
                 user_id=self.user_id,
                 user_name=self.user_name,
                 receiver_id=receiver_id,
@@ -328,6 +356,7 @@ class ChatState(rx.State):
                 timestamp=message_timestamp,
             )
             self.messages.append(chat_message)
+
             # Also append to own private messages, as we cannot decrypt them from the Database
             own_private_messages_json = json.loads(self.own_private_messages)
             own_private_messages_json.append(chat_message.to_dict())
@@ -340,7 +369,7 @@ class ChatState(rx.State):
                 sender_id=self.user_id,
                 receiver_id=receiver_id,
                 event_type=EventType.PRIVATE_IMAGE,
-                content=message,
+                content=base64_image,
                 timestamp=message_timestamp,
                 own_public_key=self.get_key_storage("public_keys")[self.user_id],
                 receiver_public_key=self.get_key_storage("public_keys")[receiver_id],
@@ -348,20 +377,29 @@ class ChatState(rx.State):
                 sender_username=self.user_name,
                 sender_profile_image=self.user_profile_image,
             )
-            # Note: We need to use threading here, even if it looks odd. This is because the
-            # Backend.send_private_message method blocks the UI thread. So we need to run it in a separate thread.
-            # Something like asyncio.to_thread or similar doesn't work here, not 100% sure why, my best guess is
-            # that it does not separate from the UI thread properly. So threading is the next best option.
-            # If you find something better, please update this.
-            threading.Thread(target=Backend.send_private_message, args=(message_format,), daemon=True).start()
+
+            # To not block the UI thread, we run this in an executor before the async with self.
+            loop = asyncio.get_running_loop()
+            # Send the Message without blocking the UI thread.
+            await loop.run_in_executor(None, Backend.send_private_message, message_format)
 
     @rx.event(background=True)
     async def check_messages(self) -> None:
         """Reflex Background Check for new messages."""
-        while True:
+        # Run while tab is open
+        while self.router.session.client_token in app.event_namespace.token_to_sid:
+            # To not block the UI thread, we run this in an executor before the async with self.
+            loop = asyncio.get_running_loop()
+            # Reading Verify and Public Keys from Database
+            verify_keys, public_keys = await loop.run_in_executor(None, Backend.read_public_keys)
+            # Reading Public Messages from Database
+            public_messages = await loop.run_in_executor(None, Backend.read_public_messages)
+            # Reading Private Messages from Database
+            backend_private_message_formats = await loop.run_in_executor(
+                None, Backend.read_private_messages, self.user_id, self.private_key
+            )
+
             async with self:
-                # Read Verify and Public Keys from Backend
-                verify_keys, public_keys = Backend.read_public_keys()
                 # Push Verify and Public Keys to the LocalStorage
                 for user_id, verify_key in verify_keys.items():
                     self.add_key_storage("verify_keys", user_id, verify_key)
@@ -369,10 +407,11 @@ class ChatState(rx.State):
                     self.add_key_storage("public_keys", user_id, public_key)
 
                 # Public Chat Messages
-                for message in Backend.read_public_messages():
+                for public_message in public_messages:
                     # Check if the message is already in the chat using timestamp
                     message_exists = any(
-                        all_messages.timestamp == message.timestamp and all_messages.timestamp == message.sender_id
+                        all_messages.timestamp == public_message.timestamp
+                        and all_messages.user_id == public_message.sender_id
                         for all_messages in self.messages
                     )
 
@@ -381,19 +420,18 @@ class ChatState(rx.State):
                         # Convert the Backend Format to the Frontend Format (MessageState)
                         self.messages.append(
                             MessageState(
-                                message=message.content,
-                                user_id=message.sender_id,
-                                user_name=message.extra_event_info.user_name,
+                                message=public_message.content,
+                                user_id=public_message.sender_id,
+                                user_name=str(public_message.extra_event_info.user_name),
                                 receiver_id=None,
-                                user_profile_image=message.extra_event_info.user_image,
-                                own_message=self.user_id == message.sender_id,
-                                is_image_message=message.event_type == EventType.PUBLIC_IMAGE,
-                                timestamp=message.timestamp,
+                                user_profile_image=public_message.extra_event_info.user_image,
+                                own_message=self.user_id == public_message.sender_id,
+                                is_image_message=public_message.event_type == EventType.PUBLIC_IMAGE,
+                                timestamp=public_message.timestamp,
                             )
                         )
 
                 # Private Chat Messages stored in the Backend
-                backend_private_message_formats = Backend.read_private_messages(self.user_id, self.private_key)
                 backend_private_messages = [
                     MessageState.from_message_format(message_format, str(self.user_id))
                     for message_format in backend_private_message_formats
@@ -408,18 +446,19 @@ class ChatState(rx.State):
                     backend_private_messages + own_private_messages,
                     key=lambda msg: msg.timestamp,
                 )
-                for message in sorted_private_messages:
+                for private_message in sorted_private_messages:
                     # Add received chat partner to chat partners list
-                    if message.user_id != self.user_id:
-                        self.register_chat_partner(message.user_id)
+                    if private_message.user_id != self.user_id:
+                        self.register_chat_partner(private_message.user_id)
                     # Check if the message is already in the chat using timestamp
                     message_exists = any(
-                        msg.timestamp == message.timestamp and msg.user_id == message.user_id for msg in self.messages
+                        msg.timestamp == private_message.timestamp and msg.user_id == private_message.user_id
+                        for msg in self.messages
                     )
 
                     # Check if message is not already in the chat
                     if not message_exists:
-                        self.messages.append(message)
+                        self.messages.append(private_message)
 
             # Wait for 5 seconds before checking for new messages again to avoid excessive load
             await asyncio.sleep(5)

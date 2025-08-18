@@ -18,31 +18,31 @@ def chat_specific_messages(message: MessageState) -> rx.Component:
         rx.Component: A component representing the chat bubble for the message, if it fits.
     """
     # Storing Message/User Attributes for easier access
-    user_id = message.get("user_id")
-    receiver_id = message.get("receiver_id")
+    user_id = message.user_id
+    receiver_id = message.receiver_id
     selected_chat = ChatState.selected_chat
 
     return rx.cond(
         # Public Chat Messages
-        (selected_chat == "Public") & (~receiver_id),
+        (selected_chat == "Public") & (~receiver_id),  # type: ignore[operator]
         chat_bubble_component(
-            message["message"],
-            rx.cond(message["user_name"], message["user_name"], user_id),
+            message.message,
+            rx.cond(message.user_name, message.user_name, user_id),
             user_id,
-            message["user_profile_image"],
-            message["own_message"],
-            message["is_image_message"],
+            message.user_profile_image,
+            message.own_message,
+            message.is_image_message,
         ),
         rx.cond(
             # Private Chat Messages
-            (selected_chat != "Public") & receiver_id & ((selected_chat == receiver_id) | (selected_chat == user_id)),
+            (selected_chat != "Public") & receiver_id & ((selected_chat == receiver_id) | (selected_chat == user_id)),  # type: ignore[operator]
             chat_bubble_component(
-                message["message"],
-                rx.cond(message["user_name"], message["user_name"], user_id),
+                message.message,
+                rx.cond(message.user_name, message.user_name, user_id),
                 user_id,
-                message["user_profile_image"],
-                message["own_message"],
-                message["is_image_message"],
+                message.user_profile_image,
+                message.own_message,
+                message.is_image_message,
             ),
             # Fallback
             rx.fragment(),
@@ -76,7 +76,12 @@ def chat_app() -> rx.Component:
             class_name="flex flex-col gap-4 pb-6 pt-3 h-full w-full bg-gray-50 p-5 rounded-xl shadow-sm",
         ),
         rx.divider(),
-        rx.hstack(send_text_component(), send_image_component(), class_name="mt-auto mb-3 w-full"),
+        rx.hstack(
+            rx.box(send_text_component(), width="50%"),
+            rx.box(send_image_component(), width="50%"),
+            spacing="2",
+            class_name="mt-auto mb-3 w-full",
+        ),
         spacing="4",
         class_name="h-screen w-full mx-5",
     )
