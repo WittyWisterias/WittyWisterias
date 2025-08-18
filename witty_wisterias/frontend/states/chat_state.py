@@ -2,7 +2,6 @@ import asyncio
 import base64
 import io
 import json
-import threading
 from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime
 from typing import Any, Literal, cast
@@ -142,7 +141,7 @@ class ChatState(WebcamStateMixin, rx.State):
         yield ChatState.capture_loop
 
     @rx.event
-    def send_public_text(self, _: dict[str, Any]) -> Generator[None, None]:
+    async def send_public_text(self, _: dict[str, Any]) -> AsyncGenerator[None, None]:
         """
         Reflex Event when a text message is sent.
 
@@ -185,15 +184,13 @@ class ChatState(WebcamStateMixin, rx.State):
                 sender_username=self.user_name,
                 sender_profile_image=self.user_profile_image,
             )
-            # Note: We need to use threading here, even if it looks odd. This is because the
-            # Backend.send_public_message method blocks the UI thread. So we need to run it in a separate thread.
-            # Something like asyncio.to_thread or similar doesn't work here, not 100% sure why, my best guess is
-            # that it does not separate from the UI thread properly. So threading is the next best option.
-            # If you find something better, please update this.
-            threading.Thread(target=Backend.send_public_message, args=(message_format,), daemon=True).start()
+            # To not block the UI thread, we run this in an executor before the async with self.
+            loop = asyncio.get_running_loop()
+            # Send the Message without blocking the UI thread.
+            await loop.run_in_executor(None, Backend.send_public_message, message_format)
 
     @rx.event
-    def send_public_image(self, form_data: dict[str, Any]) -> Generator[None, None]:
+    async def send_public_image(self, form_data: dict[str, Any]) -> AsyncGenerator[None, None]:
         """
         Reflex Event when an image message is sent.
 
@@ -239,15 +236,13 @@ class ChatState(WebcamStateMixin, rx.State):
                 sender_username=self.user_name,
                 sender_profile_image=self.user_profile_image,
             )
-            # Note: We need to use threading here, even if it looks odd. This is because the
-            # Backend.send_public_message method blocks the UI thread. So we need to run it in a separate thread.
-            # Something like asyncio.to_thread or similar doesn't work here, not 100% sure why, my best guess is
-            # that it does not separate from the UI thread properly. So threading is the next best option.
-            # If you find something better, please update this.
-            threading.Thread(target=Backend.send_public_message, args=(message_format,), daemon=True).start()
+            # To not block the UI thread, we run this in an executor before the async with self.
+            loop = asyncio.get_running_loop()
+            # Send the Message without blocking the UI thread.
+            await loop.run_in_executor(None, Backend.send_public_message, message_format)
 
     @rx.event
-    def send_private_text(self, form_data: dict[str, Any]) -> Generator[None, None]:
+    async def send_private_text(self, form_data: dict[str, Any]) -> AsyncGenerator[None, None]:
         """
         Reflex Event when a private text message is sent.
 
@@ -307,15 +302,13 @@ class ChatState(WebcamStateMixin, rx.State):
                 sender_username=self.user_name,
                 sender_profile_image=self.user_profile_image,
             )
-            # Note: We need to use threading here, even if it looks odd. This is because the
-            # Backend.send_private_message method blocks the UI thread. So we need to run it in a separate thread.
-            # Something like asyncio.to_thread or similar doesn't work here, not 100% sure why, my best guess is
-            # that it does not separate from the UI thread properly. So threading is the next best option.
-            # If you find something better, please update this.
-            threading.Thread(target=Backend.send_private_message, args=(message_format,), daemon=True).start()
+            # To not block the UI thread, we run this in an executor before the async with self.
+            loop = asyncio.get_running_loop()
+            # Send the Message without blocking the UI thread.
+            await loop.run_in_executor(None, Backend.send_private_message, message_format)
 
     @rx.event
-    def send_private_image(self, form_data: dict[str, Any]) -> Generator[None, None]:
+    async def send_private_image(self, form_data: dict[str, Any]) -> AsyncGenerator[None, None]:
         """
         Reflex Event when a private image message is sent.
 
@@ -377,12 +370,10 @@ class ChatState(WebcamStateMixin, rx.State):
                 sender_username=self.user_name,
                 sender_profile_image=self.user_profile_image,
             )
-            # Note: We need to use threading here, even if it looks odd. This is because the
-            # Backend.send_private_message method blocks the UI thread. So we need to run it in a separate thread.
-            # Something like asyncio.to_thread or similar doesn't work here, not 100% sure why, my best guess is
-            # that it does not separate from the UI thread properly. So threading is the next best option.
-            # If you find something better, please update this.
-            threading.Thread(target=Backend.send_private_message, args=(message_format,), daemon=True).start()
+            # To not block the UI thread, we run this in an executor before the async with self.
+            loop = asyncio.get_running_loop()
+            # Send the Message without blocking the UI thread.
+            await loop.run_in_executor(None, Backend.send_private_message, message_format)
 
     @rx.event(background=True)
     async def check_messages(self) -> None:
@@ -390,8 +381,11 @@ class ChatState(WebcamStateMixin, rx.State):
         while True:
             # To not block the UI thread, we run this in an executor before the async with self.
             loop = asyncio.get_running_loop()
+            # Reading Verify and Public Keys from Database
             verify_keys, public_keys = await loop.run_in_executor(None, Backend.read_public_keys)
+            # Reading Public Messages from Database
             public_messages = await loop.run_in_executor(None, Backend.read_public_messages)
+            # Reading Private Messages from Database
             backend_private_message_formats = await loop.run_in_executor(
                 None, Backend.read_private_messages, self.user_id, self.private_key
             )

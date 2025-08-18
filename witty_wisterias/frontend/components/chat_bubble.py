@@ -16,7 +16,7 @@ def chat_bubble_component(
     Creates a chat bubble component for displaying messages in the chat application.
 
     Args:
-        message (str): The content of the message, either text or base64-encoded image.
+        message (str | Image.Image): The content of the message, either text or base64-encoded image.
         user_name (str): The name of the user who sent the message.
         user_id (str): The UserID of the user who sent the message.
         user_profile_image (str): The URL of the user's profile image.
