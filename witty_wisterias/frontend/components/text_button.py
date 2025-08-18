@@ -64,7 +64,7 @@ def send_text_component() -> rx.Component:
             rx.dialog.title("Send Text"),
             rx.dialog.description(
                 "Send a text message to the chat by writing your message on a physical peace of paper and taking a"
-                "picture of it with your webcam.",
+                " picture of it with your webcam.",
                 size="2",
                 margin_bottom="16px",
             ),
