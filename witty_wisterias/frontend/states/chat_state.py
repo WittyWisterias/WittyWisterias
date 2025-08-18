@@ -13,6 +13,7 @@ from backend.message_format import EventType, MessageFormat, MessageState
 from backend.user_input_handler import UserInputHandler
 from PIL import Image
 
+from frontend.app_config import app
 from frontend.states.progress_state import ProgressState
 from frontend.states.webcam_state import WebcamStateMixin
 
@@ -378,7 +379,8 @@ class ChatState(WebcamStateMixin, rx.State):
     @rx.event(background=True)
     async def check_messages(self) -> None:
         """Reflex Background Check for new messages."""
-        while True:
+        # Run while tab is open
+        while self.router.session.client_token in app.event_namespace.token_to_sid:
             # To not block the UI thread, we run this in an executor before the async with self.
             loop = asyncio.get_running_loop()
             # Reading Verify and Public Keys from Database
