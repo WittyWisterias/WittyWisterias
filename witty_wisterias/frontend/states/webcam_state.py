@@ -20,7 +20,7 @@ webcam_cap.set(cv2.CAP_PROP_FPS, 60)
 webcam_cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 
-class WebcamStateMixin(rx.State, mixin=True):
+class WebcamStateMixin(rx.State, mixin=True):  # type: ignore[call-arg]
     """Mixin for managing webcam state in the application."""
 
     frame_data: str | None = None

@@ -131,7 +131,7 @@ class ChatState(WebcamStateMixin, rx.State):
         yield
 
     @rx.event
-    def start_webcam(self, _: dict[str, str]) -> None:
+    def start_webcam(self, _: dict[str, str]) -> Generator[None, None]:
         """
         Start the webcam capture loop.
 
@@ -142,7 +142,7 @@ class ChatState(WebcamStateMixin, rx.State):
         yield ChatState.capture_loop
 
     @rx.event
-    async def send_public_text(self, _: dict[str, Any]) -> Generator[None, None]:
+    def send_public_text(self, _: dict[str, Any]) -> Generator[None, None]:
         """
         Reflex Event when a text message is sent.
 
@@ -403,10 +403,11 @@ class ChatState(WebcamStateMixin, rx.State):
                     self.add_key_storage("public_keys", user_id, public_key)
 
                 # Public Chat Messages
-                for message in public_messages:
+                for public_message in public_messages:
                     # Check if the message is already in the chat using timestamp
                     message_exists = any(
-                        all_messages.timestamp == message.timestamp and all_messages.user_id == message.sender_id
+                        all_messages.timestamp == public_message.timestamp
+                        and all_messages.user_id == public_message.sender_id
                         for all_messages in self.messages
                     )
 
@@ -415,14 +416,14 @@ class ChatState(WebcamStateMixin, rx.State):
                         # Convert the Backend Format to the Frontend Format (MessageState)
                         self.messages.append(
                             MessageState(
-                                message=message.content,
-                                user_id=message.sender_id,
-                                user_name=message.extra_event_info.user_name,
+                                message=public_message.content,
+                                user_id=public_message.sender_id,
+                                user_name=str(public_message.extra_event_info.user_name),
                                 receiver_id=None,
-                                user_profile_image=message.extra_event_info.user_image,
-                                own_message=self.user_id == message.sender_id,
-                                is_image_message=message.event_type == EventType.PUBLIC_IMAGE,
-                                timestamp=message.timestamp,
+                                user_profile_image=public_message.extra_event_info.user_image,
+                                own_message=self.user_id == public_message.sender_id,
+                                is_image_message=public_message.event_type == EventType.PUBLIC_IMAGE,
+                                timestamp=public_message.timestamp,
                             )
                         )
 
@@ -441,18 +442,19 @@ class ChatState(WebcamStateMixin, rx.State):
                     backend_private_messages + own_private_messages,
                     key=lambda msg: msg.timestamp,
                 )
-                for message in sorted_private_messages:
+                for private_message in sorted_private_messages:
                     # Add received chat partner to chat partners list
-                    if message.user_id != self.user_id:
-                        self.register_chat_partner(message.user_id)
+                    if private_message.user_id != self.user_id:
+                        self.register_chat_partner(private_message.user_id)
                     # Check if the message is already in the chat using timestamp
                     message_exists = any(
-                        msg.timestamp == message.timestamp and msg.user_id == message.user_id for msg in self.messages
+                        msg.timestamp == private_message.timestamp and msg.user_id == private_message.user_id
+                        for msg in self.messages
                     )
 
                     # Check if message is not already in the chat
                     if not message_exists:
-                        self.messages.append(message)
+                        self.messages.append(private_message)
 
             # Wait for 5 seconds before checking for new messages again to avoid excessive load
             await asyncio.sleep(5)

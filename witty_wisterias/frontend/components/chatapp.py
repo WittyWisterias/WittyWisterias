@@ -18,31 +18,31 @@ def chat_specific_messages(message: MessageState) -> rx.Component:
         rx.Component: A component representing the chat bubble for the message, if it fits.
     """
     # Storing Message/User Attributes for easier access
-    user_id = message.get("user_id")
-    receiver_id = message.get("receiver_id")
+    user_id = message.user_id
+    receiver_id = message.receiver_id
     selected_chat = ChatState.selected_chat
 
     return rx.cond(
         # Public Chat Messages
-        (selected_chat == "Public") & (~receiver_id),
+        (selected_chat == "Public") & (~receiver_id),  # type: ignore[operator]
         chat_bubble_component(
-            message["message"],
-            rx.cond(message["user_name"], message["user_name"], user_id),
+            message.message,
+            rx.cond(message.user_name, message.user_name, user_id),
             user_id,
-            message["user_profile_image"],
-            message["own_message"],
-            message["is_image_message"],
+            message.user_profile_image,
+            message.own_message,
+            message.is_image_message,
         ),
         rx.cond(
             # Private Chat Messages
-            (selected_chat != "Public") & receiver_id & ((selected_chat == receiver_id) | (selected_chat == user_id)),
+            (selected_chat != "Public") & receiver_id & ((selected_chat == receiver_id) | (selected_chat == user_id)),  # type: ignore[operator]
             chat_bubble_component(
-                message["message"],
-                rx.cond(message["user_name"], message["user_name"], user_id),
+                message.message,
+                rx.cond(message.user_name, message.user_name, user_id),
                 user_id,
-                message["user_profile_image"],
-                message["own_message"],
-                message["is_image_message"],
+                message.user_profile_image,
+                message.own_message,
+                message.is_image_message,
             ),
             # Fallback
             rx.fragment(),

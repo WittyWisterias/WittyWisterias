@@ -70,7 +70,7 @@ def chat_sidebar() -> rx.Component:
                             src=ChatState.user_profile_image, fallback=ChatState.user_id[:2], radius="large", size="3"
                         ),
                         rx.vstack(
-                            rx.text(ChatState.user_name | ChatState.user_id, size="3"),
+                            rx.text(ChatState.user_name | ChatState.user_id, size="3"),  # type: ignore[operator]
                             rx.text(ChatState.user_id, size="1", class_name="text-gray-500"),
                             spacing="0",
                         ),

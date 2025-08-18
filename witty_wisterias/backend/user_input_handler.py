@@ -43,7 +43,8 @@ class UserInputHandler:
                     # Getting the Response data
                     page_data = response_json.get("data", {}).get("response", {})
                     # Returning the extracted Text
-                    return page_data.get("natural_text", "No text found.")
+                    extracted_text: str = page_data.get("natural_text", "No text found.")
+                    return extracted_text
 
     @staticmethod
     def text_to_image(text: str) -> str:
