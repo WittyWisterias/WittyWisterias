@@ -62,6 +62,7 @@ class Backend:
         # Check if the Message Stack is completely empty
         if not encoded_stack:
             return UploadStack()
+
         compressed_stack = base64.b64decode(encoded_stack.encode("utf-8"))
         # Decompress
         string_stack = zlib.decompress(compressed_stack).decode("utf-8")
@@ -231,9 +232,11 @@ class Backend:
         for message in queried_data.message_stack:
             if isinstance(message, str):
                 continue
+
             # Checking if the message is a public message
             if message.event_type not in (EventType.PUBLIC_TEXT, EventType.PUBLIC_IMAGE):
                 continue
+
             # Signature Verification
             if message.sender_id in queried_data.verify_keys_stack:
                 verify_key = queried_data.verify_keys_stack[message.sender_id]
@@ -274,9 +277,11 @@ class Backend:
         for message in queried_data.message_stack:
             if isinstance(message, str):
                 continue
+
             # Checking if the message is a private message
             if message.event_type not in (EventType.PRIVATE_TEXT, EventType.PRIVATE_IMAGE):
                 continue
+
             # Message Decryption check
             if message.receiver_id == user_id and message.sender_id in queried_data.public_keys_stack:
                 try:

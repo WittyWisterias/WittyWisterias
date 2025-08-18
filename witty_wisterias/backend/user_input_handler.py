@@ -29,6 +29,7 @@ class UserInputHandler:
         with connect("wss://olmocr.allenai.org/api/ws", max_size=10 * 1024 * 1024) as websocket:
             # Removing the "data:image/jpeg;base64," prefix if it exists
             image_base64 = image_base64.removeprefix("data:image/jpeg;base64,")
+
             # Sending the base64 image to the WebSocket server
             websocket.send(json.dumps({"fileChunk": image_base64}))
             websocket.send(json.dumps({"endOfFile": True}))

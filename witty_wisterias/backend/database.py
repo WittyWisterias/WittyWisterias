@@ -46,6 +46,7 @@ class Database:
         match = re.search(r"(\d+\.\d+)", url)
         if match:
             return float(match.group(1))
+        # If no match is found, return 0.0 as a default value
         return 0.0
 
     @staticmethod
@@ -80,6 +81,7 @@ class Database:
         # Save as PNG (lossless) in memory
         buffer = BytesIO()
         pil_image.save(buffer, format="PNG")
+
         # Get the byte content of the image file
         image_bytes = buffer.getvalue()
         # Check File Size (Image Hosting Service Limit)
@@ -193,6 +195,7 @@ class Database:
                 no_header_data = pixel_byte_data[len(FILE_SEARCH_TERM.encode()) + 8 :]
                 # Remove any padding bytes (if any) to get the original data
                 no_padding_data = no_header_data.rstrip(b"\x00")
+
                 # Decode bytes into string and return it
                 decoded_data: str = no_padding_data.decode("utf-8", errors="ignore")
                 return decoded_data

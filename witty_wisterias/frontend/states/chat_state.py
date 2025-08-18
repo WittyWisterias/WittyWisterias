@@ -23,10 +23,12 @@ class ChatState(WebcamStateMixin, rx.State):
 
     # Tos Accepted (Note: We need to use a string here because LocalStorage does not support booleans)
     tos_accepted: str = rx.LocalStorage("False", name="tos_accepted", sync=True)
+
     # List of Messages
     messages: list[MessageState] = rx.field(default_factory=list)
     # We need to store our own private messages in LocalStorage, as we cannot decrypt them from the Database
     own_private_messages: str = rx.LocalStorage("[]", name="private_messages", sync=True)
+
     # Chat Partners
     chat_partners: list[str] = rx.field(default_factory=list)
     # Current Selected Chat
@@ -36,6 +38,7 @@ class ChatState(WebcamStateMixin, rx.State):
     user_id: str = rx.LocalStorage("", name="user_id", sync=True)
     user_name: str = rx.LocalStorage("", name="user_name", sync=True)
     user_profile_image: str = rx.LocalStorage("", name="user_profile_image", sync=True)
+
     # Own Signing key and Others Verify Keys for Global Chat
     signing_key: str = rx.LocalStorage("", name="signing_key", sync=True)
     verify_keys_storage: str = rx.LocalStorage("{}", name="verify_keys_storage", sync=True)
@@ -237,6 +240,7 @@ class ChatState(WebcamStateMixin, rx.State):
                 sender_username=self.user_name,
                 sender_profile_image=self.user_profile_image,
             )
+
             # To not block the UI thread, we run this in an executor before the async with self.
             loop = asyncio.get_running_loop()
             # Send the Message without blocking the UI thread.
@@ -303,6 +307,7 @@ class ChatState(WebcamStateMixin, rx.State):
                 sender_username=self.user_name,
                 sender_profile_image=self.user_profile_image,
             )
+
             # To not block the UI thread, we run this in an executor before the async with self.
             loop = asyncio.get_running_loop()
             # Send the Message without blocking the UI thread.
@@ -351,6 +356,7 @@ class ChatState(WebcamStateMixin, rx.State):
                 timestamp=message_timestamp,
             )
             self.messages.append(chat_message)
+
             # Also append to own private messages, as we cannot decrypt them from the Database
             own_private_messages_json = json.loads(self.own_private_messages)
             own_private_messages_json.append(chat_message.to_dict())
@@ -371,6 +377,7 @@ class ChatState(WebcamStateMixin, rx.State):
                 sender_username=self.user_name,
                 sender_profile_image=self.user_profile_image,
             )
+
             # To not block the UI thread, we run this in an executor before the async with self.
             loop = asyncio.get_running_loop()
             # Send the Message without blocking the UI thread.
@@ -391,6 +398,7 @@ class ChatState(WebcamStateMixin, rx.State):
             backend_private_message_formats = await loop.run_in_executor(
                 None, Backend.read_private_messages, self.user_id, self.private_key
             )
+
             async with self:
                 # Push Verify and Public Keys to the LocalStorage
                 for user_id, verify_key in verify_keys.items():
