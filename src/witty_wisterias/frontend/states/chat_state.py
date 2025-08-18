@@ -5,7 +5,7 @@ import json
 import threading
 from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import reflex as rx
 from backend.backend import Backend
@@ -35,7 +35,7 @@ class ChatState(WebcamStateMixin, rx.State):
     # Own User Data
     user_id: str = rx.LocalStorage("", name="user_id", sync=True)
     user_name: str = rx.LocalStorage("", name="user_name", sync=True)
-    user_profile_image: str | None = rx.LocalStorage(None, name="user_profile_image", sync=True)
+    user_profile_image: str = rx.LocalStorage("", name="user_profile_image", sync=True)
     # Own Signing key and Others Verify Keys for Global Chat
     signing_key: str = rx.LocalStorage("", name="signing_key", sync=True)
     verify_keys_storage: str = rx.LocalStorage("{}", name="verify_keys_storage", sync=True)
@@ -107,7 +107,7 @@ class ChatState(WebcamStateMixin, rx.State):
         yield
 
     @rx.event
-    def edit_user_info(self, form_data: dict[str, str]) -> Generator[None, None]:
+    def edit_user_info(self, form_data: dict[str, Any]) -> Generator[None, None]:
         """
         Reflex Event when the user information is edited.
 
@@ -116,7 +116,7 @@ class ChatState(WebcamStateMixin, rx.State):
         """
         self.user_name = form_data.get("user_name", "").strip()
         # A User Profile Image is not required in the Form.
-        self.user_profile_image = form_data.get("user_profile_image", "").strip() or None
+        self.user_profile_image = form_data.get("user_profile_image", "").strip()
         yield
 
     @rx.event
@@ -142,7 +142,7 @@ class ChatState(WebcamStateMixin, rx.State):
         yield ChatState.capture_loop
 
     @rx.event
-    async def send_public_text(self, _: dict[str, str]) -> Generator[None, None]:
+    async def send_public_text(self, _: dict[str, Any]) -> Generator[None, None]:
         """
         Reflex Event when a text message is sent.
 
@@ -193,7 +193,7 @@ class ChatState(WebcamStateMixin, rx.State):
             threading.Thread(target=Backend.send_public_message, args=(message_format,), daemon=True).start()
 
     @rx.event
-    def send_public_image(self, form_data: dict[str, str]) -> Generator[None, None]:
+    def send_public_image(self, form_data: dict[str, Any]) -> Generator[None, None]:
         """
         Reflex Event when an image message is sent.
 
@@ -247,7 +247,7 @@ class ChatState(WebcamStateMixin, rx.State):
             threading.Thread(target=Backend.send_public_message, args=(message_format,), daemon=True).start()
 
     @rx.event
-    def send_private_text(self, form_data: dict[str, str]) -> Generator[None, None]:
+    def send_private_text(self, form_data: dict[str, Any]) -> Generator[None, None]:
         """
         Reflex Event when a private text message is sent.
 
@@ -315,7 +315,7 @@ class ChatState(WebcamStateMixin, rx.State):
             threading.Thread(target=Backend.send_private_message, args=(message_format,), daemon=True).start()
 
     @rx.event
-    def send_private_image(self, form_data: dict[str, str]) -> Generator[None, None]:
+    def send_private_image(self, form_data: dict[str, Any]) -> Generator[None, None]:
         """
         Reflex Event when a private image message is sent.
 

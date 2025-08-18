@@ -1,5 +1,6 @@
 import reflex as rx
 
+from frontend.app_config import app  # noqa: F401
 from frontend.components.chatapp import chat_app
 from frontend.components.sidebar import chat_sidebar
 from frontend.components.tos_accept_form import tos_accept_form
