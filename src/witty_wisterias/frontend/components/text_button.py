@@ -21,16 +21,8 @@ def text_form() -> rx.Component:
             class_name="w-full",
         ),
         rx.hstack(
-            rx.dialog.close(
-                rx.button(
-                    "Cancel",
-                    variant="soft",
-                    color_scheme="gray",
-                ),
-            ),
-            rx.dialog.close(
-                rx.button("Send", type="submit"),
-            ),
+            rx.dialog.close(rx.button("Cancel", variant="soft", color_scheme="gray")),
+            rx.dialog.close(rx.button("Send", type="submit")),
         ),
         spacing="3",
         margin_top="16px",
@@ -39,7 +31,12 @@ def text_form() -> rx.Component:
 
 
 def send_text_component() -> rx.Component:
-    """The dialog (and button) for sending texts"""
+    """
+    The dialog (and button) for sending texts.
+
+    Returns:
+        rx.Component: The Text Button Component, which triggers the Text Message Form.
+    """
     # TODO: This should be replaced with the Webcam handler, text will do for now
     return rx.dialog.root(
         rx.dialog.trigger(

@@ -1,137 +1,28 @@
 import asyncio
-import base64
 import io
 import json
 import threading
 from collections.abc import AsyncGenerator, Generator
-from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Literal, TypedDict, cast
+from typing import Literal, cast
 
 import reflex as rx
 import requests
 from backend.backend import Backend
 from backend.cryptographer import Cryptographer
-from backend.message_format import EventType, MessageFormat
+from backend.message_format import EventType, MessageFormat, MessageState
 from PIL import Image
 
 from frontend.states.progress_state import ProgressState
 
 
-class MessageJson(TypedDict):
-    """
-    Defines the structure of the JSON representation of a message.
-    This is used for serialization and deserialization of messages.
-    """
-
-    message: str
-    user_id: str
-    receiver_id: str | None
-    user_name: str
-    user_profile_image: str | None
-    own_message: bool
-    is_image_message: bool
-    timestamp: float
-
-
-@dataclass
-class Message:
-    """A message in the chat application."""
-
-    message: str | Image.Image
-    user_id: str
-    receiver_id: str | None
-    user_name: str
-    user_profile_image: str | None
-    own_message: bool
-    is_image_message: bool
-    timestamp: float
-
-    @staticmethod
-    def from_message_format(message_format: MessageFormat) -> "Message":
-        """
-        Convert a MessageFormat object to a Message object.
-
-        Args:
-            message_format (MessageFormat): The MessageFormat object to convert.
-
-        Returns:
-            Message: A Message object created from the MessageFormat.
-        """
-        return Message(
-            message=message_format.content,
-            user_id=message_format.sender_id,
-            receiver_id=message_format.receiver_id if message_format.receiver_id != "None" else None,
-            user_name=message_format.extra_event_info.user_name or message_format.sender_id,
-            user_profile_image=message_format.extra_event_info.user_image,
-            own_message=str(ChatState.user_id) == message_format.sender_id,
-            is_image_message=message_format.event_type in (EventType.PUBLIC_IMAGE, EventType.PRIVATE_IMAGE),
-            timestamp=message_format.timestamp,
-        )
-
-    @staticmethod
-    def from_dict(data: MessageJson) -> "Message":
-        """
-        Convert a dictionary to a Message object.
-
-        Args:
-            data (dict[str, str]): The dictionary containing message data.
-
-        Returns:
-            Message: A Message object created from the dictionary.
-        """
-        if data.get("is_image_message", False):
-            # Decode the base64 image data to an Image object
-            image_data = base64.b64decode(data["message"])
-            message_content = Image.open(io.BytesIO(image_data))
-            message_content = message_content.convert("RGB")
-        else:
-            message_content = data["message"]
-        return Message(
-            message=message_content,
-            user_id=data["user_id"],
-            receiver_id=data.get("receiver_id"),
-            user_name=data["user_name"],
-            user_profile_image=data.get("user_profile_image"),
-            own_message=data.get("own_message", False),
-            is_image_message=data.get("is_image_message", False),
-            timestamp=float(data["timestamp"]),
-        )
-
-    def to_dict(self) -> MessageJson:
-        """
-        Convert the message into a Python dictionary.
-
-        Returns:
-            MessageJson: A dictionary representation of the message.
-        """
-        if isinstance(self.message, Image.Image):
-            # Convert the image to bytes and encode it in base64 (JPEG to save limited LocalStorage space)
-            buffered = io.BytesIO()
-            self.message.save(buffered, format="JPEG")
-            message_data = base64.b64encode(buffered.getvalue()).decode("utf-8")
-        else:
-            message_data = self.message
-
-        return {
-            "message": message_data,
-            "user_id": self.user_id,
-            "receiver_id": self.receiver_id,
-            "user_name": self.user_name,
-            "user_profile_image": self.user_profile_image,
-            "own_message": self.own_message,
-            "is_image_message": self.is_image_message,
-            "timestamp": self.timestamp,
-        }
-
-
 class ChatState(rx.State):
-    """The Chat app state, used to handle Messages."""
+    """The Chat app state, used to handle Messages. Main Frontend Entrypoint."""
 
     # Tos Accepted (Note: We need to use a string here because LocalStorage does not support booleans)
     tos_accepted: str = rx.LocalStorage("False", name="tos_accepted", sync=True)
     # List of Messages
-    messages: list[Message] = rx.field(default_factory=list)
+    messages: list[MessageState] = rx.field(default_factory=list)
     # We need to store our own private messages in LocalStorage, as we cannot decrypt them from the Database
     own_private_messages: str = rx.LocalStorage("[]", name="private_messages", sync=True)
     # Chat Partners
@@ -162,6 +53,7 @@ class ChatState(rx.State):
             dict[str, str]: A dictionary containing the keys and their corresponding values.
         """
         storage = self.__getattribute__(f"{storage_name}_storage")
+        # Note: Casting Type as json.loads returns typing.Any
         return cast("dict[str, str]", json.loads(storage))
 
     def dump_key_storage(self, storage_name: Literal["verify_keys", "public_keys"], value: dict[str, str]) -> None:
@@ -185,10 +77,14 @@ class ChatState(rx.State):
             user_id (str): The user ID to add.
             verify_key (str): The key to associate with the user ID.
         """
+        # Loading the Key Storage into a dict
         current_keys = self.get_key_storage(storage_name)
+        # Adding the Key
         current_keys[user_id] = verify_key
+        # Dumping the new Key Storage
         self.dump_key_storage(storage_name, current_keys)
 
+    # Registering Private Chat Partners to show them in the Private Chats list
     def register_chat_partner(self, user_id: str) -> None:
         """
         Register a new chat partner by adding their user ID to the chat partners list.
@@ -196,6 +92,7 @@ class ChatState(rx.State):
         Args:
             user_id (str): The user ID of the chat partner to register.
         """
+        # Avoid Duplicates
         if user_id not in self.chat_partners:
             self.chat_partners.append(user_id)
             # Sort to find the chat partner in the list more easily
@@ -216,6 +113,7 @@ class ChatState(rx.State):
             form_data (dict[str, str]): The form data containing the user information.
         """
         self.user_name = form_data.get("user_name", "").strip()
+        # A User Profile Image is not required in the Form.
         self.user_profile_image = form_data.get("user_profile_image", "").strip() or None
         yield
 
@@ -244,13 +142,12 @@ class ChatState(rx.State):
             yield ProgressState.public_message_progress
 
             message_timestamp = datetime.now(UTC).timestamp()
-            # Appending new own message
+            # Appending new own message to show in the Chat
             self.messages.append(
-                Message(
+                MessageState(
                     message=message,
                     user_id=self.user_id,
                     user_name=self.user_name,
-                    receiver_id=None,
                     user_profile_image=self.user_profile_image,
                     own_message=True,
                     is_image_message=False,
@@ -259,7 +156,7 @@ class ChatState(rx.State):
             )
             yield
 
-            # Posting message to backend
+            # Formatting the message for the Backend
             message_format = MessageFormat(
                 sender_id=self.user_id,
                 event_type=EventType.PUBLIC_TEXT,
@@ -295,13 +192,12 @@ class ChatState(rx.State):
             yield ProgressState.public_message_progress
 
             message_timestamp = datetime.now(UTC).timestamp()
-            # Appending new own message
+            # Appending new own message to show in the Chat
             self.messages.append(
-                Message(
+                MessageState(
                     message=img,
                     user_id=self.user_id,
                     user_name=self.user_name,
-                    receiver_id=None,
                     user_profile_image=self.user_profile_image,
                     own_message=True,
                     is_image_message=True,
@@ -310,7 +206,7 @@ class ChatState(rx.State):
             )
             yield
 
-            # Posting message to backend
+            # Formatting the message for the Backend
             message_format = MessageFormat(
                 sender_id=self.user_id,
                 event_type=EventType.PUBLIC_IMAGE,
@@ -343,6 +239,7 @@ class ChatState(rx.State):
                 # Cant message someone who is not registered
                 raise ValueError("Recipients Public Key is not registered.")
 
+            # Register Chat Partner and select the Chat
             self.register_chat_partner(receiver_id)
             self.selected_chat = receiver_id
             yield
@@ -351,8 +248,8 @@ class ChatState(rx.State):
             yield ProgressState.private_message_progress
 
             message_timestamp = datetime.now(UTC).timestamp()
-            # Appending new own message
-            chat_message = Message(
+            # Appending new own message to show in the Chat
+            chat_message = MessageState(
                 message=message,
                 user_id=self.user_id,
                 user_name=self.user_name,
@@ -364,14 +261,14 @@ class ChatState(rx.State):
             )
 
             self.messages.append(chat_message)
-            # Also append to own private messages, as we cannot decrypt them from the Database
+            # Also append to own private messages LocalStorage, as we cannot decrypt them from the Database
             own_private_messages_json = json.loads(self.own_private_messages)
             own_private_messages_json.append(chat_message.to_dict())
             # Encode back to String JSON
             self.own_private_messages = json.dumps(own_private_messages_json)
             yield
 
-            # Posting message to backend
+            # Formatting the message for the Backend
             message_format = MessageFormat(
                 sender_id=self.user_id,
                 receiver_id=receiver_id,
@@ -406,6 +303,7 @@ class ChatState(rx.State):
                 # Cant message someone who is not registered
                 raise ValueError("Recipients Public Key is not registered.")
 
+            # Register Chat Partner and select the Chat
             self.register_chat_partner(receiver_id)
             self.selected_chat = receiver_id
             yield
@@ -418,8 +316,8 @@ class ChatState(rx.State):
             yield ProgressState.private_message_progress
 
             message_timestamp = datetime.now(UTC).timestamp()
-            # Appending new own message
-            chat_message = Message(
+            # Appending new own message to show in the Chat
+            chat_message = MessageState(
                 message=img,
                 user_id=self.user_id,
                 user_name=self.user_name,
@@ -437,7 +335,7 @@ class ChatState(rx.State):
             self.own_private_messages = json.dumps(own_private_messages_json)
             yield
 
-            # Posting message to backend
+            # Formatting the message for the Backend
             message_format = MessageFormat(
                 sender_id=self.user_id,
                 receiver_id=receiver_id,
@@ -464,6 +362,7 @@ class ChatState(rx.State):
             async with self:
                 # Read Verify and Public Keys from Backend
                 verify_keys, public_keys = Backend.read_public_keys()
+                # Push Verify and Public Keys to the LocalStorage
                 for user_id, verify_key in verify_keys.items():
                     self.add_key_storage("verify_keys", user_id, verify_key)
                 for user_id, public_key in public_keys.items():
@@ -473,14 +372,15 @@ class ChatState(rx.State):
                 for message in Backend.read_public_messages():
                     # Check if the message is already in the chat using timestamp
                     message_exists = any(
-                        msg.timestamp == message.timestamp and msg.user_id == message.sender_id
-                        for msg in self.messages
+                        all_messages.timestamp == message.timestamp and all_messages.timestamp == message.sender_id
+                        for all_messages in self.messages
                     )
 
                     # Check if message is not already in the chat
                     if not message_exists:
+                        # Convert the Backend Format to the Frontend Format (MessageState)
                         self.messages.append(
-                            Message(
+                            MessageState(
                                 message=message.content,
                                 user_id=message.sender_id,
                                 user_name=message.extra_event_info.user_name,
@@ -491,13 +391,19 @@ class ChatState(rx.State):
                                 timestamp=message.timestamp,
                             )
                         )
-                # Private Chat Messages
+
+                # Private Chat Messages stored in the Backend
                 backend_private_message_formats = Backend.read_private_messages(self.user_id, self.private_key)
                 backend_private_messages = [
-                    Message.from_message_format(message_format) for message_format in backend_private_message_formats
+                    MessageState.from_message_format(message_format, str(self.user_id))
+                    for message_format in backend_private_message_formats
                 ]
+                # Our own Private Messages, stored in the LocalStorage as we cannot self-decrypt them from the Backend
                 own_private_messages_json = json.loads(self.own_private_messages)
-                own_private_messages = [Message.from_dict(message_data) for message_data in own_private_messages_json]
+                own_private_messages = [
+                    MessageState.from_dict(message_data) for message_data in own_private_messages_json
+                ]
+                # Sort them based on their timestamp
                 sorted_private_messages = sorted(
                     backend_private_messages + own_private_messages,
                     key=lambda msg: msg.timestamp,
@@ -520,7 +426,7 @@ class ChatState(rx.State):
 
     @rx.event
     async def startup_event(self) -> AsyncGenerator[None, None]:
-        """Reflex Event that is called when the app starts up."""
+        """Reflex Event that is called when the app starts up. Main Entrypoint for the Frontend and spawns Backend."""
         # Start Message Checking Background Task
         yield ChatState.check_messages
 

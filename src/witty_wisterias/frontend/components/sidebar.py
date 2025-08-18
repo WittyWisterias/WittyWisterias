@@ -7,7 +7,13 @@ from frontend.states.progress_state import ProgressState
 
 
 def chat_sidebar() -> rx.Component:
-    """Sidebar component for the chat application, which allows users to select different chats."""
+    """
+    Sidebar component for the chat application, which allows users to select the public Chat, different private
+    Chats and to view and edit their own User Information.
+
+    Returns:
+        rx.Component: The Chat Sidebar Component.
+    """
     return rx.el.div(
         rx.vstack(
             rx.hstack(

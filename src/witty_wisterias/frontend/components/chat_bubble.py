@@ -12,7 +12,8 @@ def chat_bubble_component(
     own_message: bool = False,
     is_image_message: bool = False,
 ) -> rx.Component:
-    """Creates a chat bubble component for displaying messages in the chat application.
+    """
+    Creates a chat bubble component for displaying messages in the chat application.
 
     Args:
         message (str): The content of the message, either text or base64-encoded image.
@@ -25,12 +26,7 @@ def chat_bubble_component(
     Returns:
         rx.Component: A component representing the chat bubble.
     """
-    avatar = rx.avatar(
-        src=user_profile_image,
-        fallback=user_id[:2],
-        radius="large",
-        size="3",
-    )
+    avatar = rx.avatar(src=user_profile_image, fallback=user_id[:2], radius="large", size="3")
     message_content = rx.vstack(
         rx.text(user_name, class_name="font-semibold text-gray-600"),
         rx.cond(
@@ -42,6 +38,8 @@ def chat_bubble_component(
         spacing="0",
     )
 
+    # If the message is our own the Avatar should be on the right of the message content
+    # If it is not, it should be on the left.
     chat_bubble = rx.hstack(
         rx.cond(
             own_message,
@@ -51,5 +49,6 @@ def chat_bubble_component(
         class_name="items-start space-x-2 bg-gray-100 p-4 rounded-lg shadow-sm",
         style={"alignSelf": rx.cond(own_message, "flex-end", "flex-start")},
     )
+
     # Allow creating a private chat by clicking on others user's chat message
     return rx.cond(own_message, chat_bubble, create_chat_component(chat_bubble, user_id))

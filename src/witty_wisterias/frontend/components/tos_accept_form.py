@@ -4,7 +4,12 @@ from frontend.states.chat_state import ChatState
 
 
 def tos_accept_form() -> rx.Component:
-    """Terms of Service Accept Form"""
+    """
+    Terms of Service Accept Form.
+
+    Returns:
+        rx.Component: The Terms of Service Accept Form.
+    """
     return rx.form(
         rx.vstack(
             rx.text("You hereby accept the Terms of Service of:"),

@@ -4,14 +4,14 @@ from frontend.states.chat_state import ChatState
 
 
 def user_info_component() -> rx.Component:
-    """The dialog (and button) for editing the user information"""
+    """
+    The dialog (and button) for editing the user information.
+
+    Returns:
+        rx.Component: The User Info Edit Button, which triggers the User Info Edit Form.
+    """
     return rx.dialog.root(
-        rx.dialog.trigger(
-            rx.button(
-                rx.icon("user-pen", size=25, class_name="text-gray-500"),
-                class_name="bg-white",
-            )
-        ),
+        rx.dialog.trigger(rx.button(rx.icon("user-pen", size=25, class_name="text-gray-500"), class_name="bg-white")),
         rx.dialog.content(
             rx.dialog.title("Edit your User Information"),
             rx.dialog.description(
@@ -41,7 +41,7 @@ def user_info_component() -> rx.Component:
                                 "Cancel",
                                 variant="soft",
                                 color_scheme="gray",
-                            ),
+                            )
                         ),
                         rx.dialog.close(
                             rx.button("Send", type="submit"),
