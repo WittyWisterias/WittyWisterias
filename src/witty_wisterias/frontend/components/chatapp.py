@@ -76,7 +76,12 @@ def chat_app() -> rx.Component:
             class_name="flex flex-col gap-4 pb-6 pt-3 h-full w-full bg-gray-50 p-5 rounded-xl shadow-sm",
         ),
         rx.divider(),
-        rx.hstack(send_text_component(), send_image_component(), class_name="mt-auto mb-3 w-full"),
+        rx.hstack(
+            rx.box(send_text_component(), width="50%"),
+            rx.box(send_image_component(), width="50%"),
+            spacing="2",
+            class_name="mt-auto mb-3 w-full",
+        ),
         spacing="4",
         class_name="h-screen w-full mx-5",
     )

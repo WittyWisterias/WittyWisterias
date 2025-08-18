@@ -1,10 +1,8 @@
 import base64
+import json
 
 import httpx
-import regex as re
-from bs4 import BeautifulSoup
-
-from .exceptions import InvalidResponseError
+from websockets.sync.client import connect
 
 # Global HTTP Session for the User Input Handler
 HTTP_SESSION = httpx.Client(timeout=30)
@@ -19,7 +17,7 @@ class UserInputHandler:
     @staticmethod
     def image_to_text(image_base64: str) -> str:
         """
-        Converts a base64 encoded image to text using https://freeocr.ai/.
+        Converts a base64 encoded image to text using https://olmocr.allenai.org.
 
         Args:
             image_base64 (str): A base64-encoded string representing the image.
@@ -27,36 +25,25 @@ class UserInputHandler:
         Returns:
             str: The text extracted from the image.
         """
-        # Getting some Cookies etc.
-        page_resp = HTTP_SESSION.get("https://freeocr.ai/")
-        # Getting All JS Scripts from the Page
-        soup = BeautifulSoup(page_resp.text, "html.parser")
-        js_script_links = [script.get("src") for script in soup.find_all("script") if script.get("src")]
-        # Getting Page Script Content
-        page_js_script: str | None = next((src for src in js_script_links if "page-" in src), None)
-        if not page_js_script:
-            raise InvalidResponseError("Could not find the page script in the response.")
-        page_script_content = HTTP_SESSION.get("https://freeocr.ai" + page_js_script).text
-        # Getting the Next-Action by searching for a 42 character long hex string
-        next_action_search = re.search(r"[a-f0-9]{42}", page_script_content)
-        if not next_action_search:
-            raise InvalidResponseError("Could not find Next-Action in the response.")
-        next_action = next_action_search.group(0)
+        # Connecting to the WebSocket OCR server
+        with connect("wss://olmocr.allenai.org/api/ws", max_size=10 * 1024 * 1024) as websocket:
+            # Removing the "data:image/jpeg;base64," prefix if it exists
+            image_base64 = image_base64.removeprefix("data:image/jpeg;base64,")
+            # Sending the base64 image to the WebSocket server
+            websocket.send(json.dumps({"fileChunk": image_base64}))
+            websocket.send(json.dumps({"endOfFile": True}))
 
-        # Posting to the OCR service
-        resp = HTTP_SESSION.post(
-            "https://freeocr.ai/",
-            json=["data:image/jpeg;base64," + image_base64],
-            headers={
-                "Next-Action": next_action,
-                "Next-Router-State-Tree": "%5B%22%22%2C%7B%22children%22%3A%5B%5B%22locale%22%2C%22de%22%2"
-                "C%22d%22%5D%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C"
-                "%22%2Fde%22%2C%22refresh%22%5D%7D%2Cnull%2Cnull%2Ctrue%5D%7D%5D",
-            },
-        )
-        # Removing Content Headers to extract the text
-        extracted_text: str = resp.text.splitlines()[1][3:-1]
-        return extracted_text
+            # Receiving the response from the server
+            while True:
+                response_str = websocket.recv()
+                response_json = json.loads(response_str)
+
+                # Check if the response contains the final processed data
+                if response_json.get("type") == "page_complete":
+                    # Getting the Response data
+                    page_data = response_json.get("data", {}).get("response", {})
+                    # Returning the extracted Text
+                    return page_data.get("natural_text", "No text found.")
 
     @staticmethod
     def text_to_image(text: str) -> str:

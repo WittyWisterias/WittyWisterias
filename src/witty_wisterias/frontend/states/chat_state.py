@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import io
 import json
 import threading
@@ -7,16 +8,17 @@ from datetime import UTC, datetime
 from typing import Literal, cast
 
 import reflex as rx
-import requests
 from backend.backend import Backend
 from backend.cryptographer import Cryptographer
 from backend.message_format import EventType, MessageFormat, MessageState
+from backend.user_input_handler import UserInputHandler
 from PIL import Image
 
 from frontend.states.progress_state import ProgressState
+from frontend.states.webcam_state import WebcamStateMixin
 
 
-class ChatState(rx.State):
+class ChatState(WebcamStateMixin, rx.State):
     """The Chat app state, used to handle Messages. Main Frontend Entrypoint."""
 
     # Tos Accepted (Note: We need to use a string here because LocalStorage does not support booleans)
@@ -129,14 +131,29 @@ class ChatState(rx.State):
         yield
 
     @rx.event
-    def send_public_text(self, form_data: dict[str, str]) -> Generator[None, None]:
+    def start_webcam(self, _: dict[str, str]) -> None:
+        """
+        Start the webcam capture loop.
+
+        Args:
+            _ (dict[str, str]): The form data containing the message in the `message` field. Unused.
+        """
+        self.recording = True
+        yield ChatState.capture_loop
+
+    @rx.event
+    async def send_public_text(self, _: dict[str, str]) -> Generator[None, None]:
         """
         Reflex Event when a text message is sent.
 
         Args:
-            form_data (dict[str, str]): The form data containing the message in the `message` field.
+            _ (dict[str, str]): The form data containing the message in the `message` field. Unused.
         """
-        message = form_data.get("message", "").strip()
+        # Stop Webcam Stream
+        ChatState.disable_webcam()
+        # Converting last Webcam Frame to Text
+        message = UserInputHandler.image_to_text(str(self.frame_data))
+
         if message:
             # Sending Placebo Progress Bar
             yield ProgressState.public_message_progress
@@ -148,6 +165,7 @@ class ChatState(rx.State):
                     message=message,
                     user_id=self.user_id,
                     user_name=self.user_name,
+                    receiver_id=None,
                     user_profile_image=self.user_profile_image,
                     own_message=True,
                     is_image_message=False,
@@ -184,9 +202,12 @@ class ChatState(rx.State):
         """
         message = form_data.get("message", "").strip()
         if message:
-            # Temporary
-            response = requests.get(message, timeout=10)
-            img = Image.open(io.BytesIO(response.content))
+            # Converting the Image Description to an Image
+            base64_image = UserInputHandler.text_to_image(message)
+            # Decode the Base64 string to bytes
+            image_data = base64.b64decode(base64_image)
+            # Open the image stream with PIL
+            pil_image = Image.open(io.BytesIO(image_data))
 
             # Sending Placebo Progress Bar
             yield ProgressState.public_message_progress
@@ -195,9 +216,10 @@ class ChatState(rx.State):
             # Appending new own message to show in the Chat
             self.messages.append(
                 MessageState(
-                    message=img,
+                    message=pil_image,
                     user_id=self.user_id,
                     user_name=self.user_name,
+                    receiver_id=None,
                     user_profile_image=self.user_profile_image,
                     own_message=True,
                     is_image_message=True,
@@ -210,7 +232,7 @@ class ChatState(rx.State):
             message_format = MessageFormat(
                 sender_id=self.user_id,
                 event_type=EventType.PUBLIC_IMAGE,
-                content=message,
+                content=base64_image,
                 timestamp=message_timestamp,
                 signing_key=self.signing_key,
                 verify_key=self.get_key_storage("verify_keys")[self.user_id],
@@ -232,7 +254,11 @@ class ChatState(rx.State):
         Args:
             form_data (dict[str, str]): The form data containing the message in the `message` field.
         """
-        message = form_data.get("message", "").strip()
+        # Stop Webcam Stream
+        ChatState.disable_webcam()
+        # Converting last Webcam Frame to Text
+        message = UserInputHandler.image_to_text(str(self.frame_data))
+
         receiver_id = form_data.get("receiver_id", "").strip() or self.selected_chat
         if message and receiver_id:
             if receiver_id not in self.get_key_storage("public_keys"):
@@ -308,9 +334,12 @@ class ChatState(rx.State):
             self.selected_chat = receiver_id
             yield
 
-            # Temporary
-            response = requests.get(message, timeout=10)
-            img = Image.open(io.BytesIO(response.content))
+            # Converting the Image Description to an Image
+            base64_image = UserInputHandler.text_to_image(message)
+            # Decode the Base64 string to bytes
+            image_data = base64.b64decode(base64_image)
+            # Open the image stream with PIL
+            pil_image = Image.open(io.BytesIO(image_data))
 
             # Sending Placebo Progress Bar
             yield ProgressState.private_message_progress
@@ -318,7 +347,7 @@ class ChatState(rx.State):
             message_timestamp = datetime.now(UTC).timestamp()
             # Appending new own message to show in the Chat
             chat_message = MessageState(
-                message=img,
+                message=pil_image,
                 user_id=self.user_id,
                 user_name=self.user_name,
                 receiver_id=receiver_id,
@@ -340,7 +369,7 @@ class ChatState(rx.State):
                 sender_id=self.user_id,
                 receiver_id=receiver_id,
                 event_type=EventType.PRIVATE_IMAGE,
-                content=message,
+                content=base64_image,
                 timestamp=message_timestamp,
                 own_public_key=self.get_key_storage("public_keys")[self.user_id],
                 receiver_public_key=self.get_key_storage("public_keys")[receiver_id],
@@ -359,9 +388,14 @@ class ChatState(rx.State):
     async def check_messages(self) -> None:
         """Reflex Background Check for new messages."""
         while True:
+            # To not block the UI thread, we run this in an executor before the async with self.
+            loop = asyncio.get_running_loop()
+            verify_keys, public_keys = await loop.run_in_executor(None, Backend.read_public_keys)
+            public_messages = await loop.run_in_executor(None, Backend.read_public_messages)
+            backend_private_message_formats = await loop.run_in_executor(
+                None, Backend.read_private_messages, self.user_id, self.private_key
+            )
             async with self:
-                # Read Verify and Public Keys from Backend
-                verify_keys, public_keys = Backend.read_public_keys()
                 # Push Verify and Public Keys to the LocalStorage
                 for user_id, verify_key in verify_keys.items():
                     self.add_key_storage("verify_keys", user_id, verify_key)
@@ -369,10 +403,10 @@ class ChatState(rx.State):
                     self.add_key_storage("public_keys", user_id, public_key)
 
                 # Public Chat Messages
-                for message in Backend.read_public_messages():
+                for message in public_messages:
                     # Check if the message is already in the chat using timestamp
                     message_exists = any(
-                        all_messages.timestamp == message.timestamp and all_messages.timestamp == message.sender_id
+                        all_messages.timestamp == message.timestamp and all_messages.user_id == message.sender_id
                         for all_messages in self.messages
                     )
 
@@ -393,7 +427,6 @@ class ChatState(rx.State):
                         )
 
                 # Private Chat Messages stored in the Backend
-                backend_private_message_formats = Backend.read_private_messages(self.user_id, self.private_key)
                 backend_private_messages = [
                     MessageState.from_message_format(message_format, str(self.user_id))
                     for message_format in backend_private_message_formats

@@ -180,14 +180,22 @@ class MessageState:
         Returns:
             Message: A Message object created from the MessageFormat.
         """
+        is_image_message = message_format.event_type in (EventType.PUBLIC_IMAGE, EventType.PRIVATE_IMAGE)
+        if is_image_message:
+            # Decode the base64 image data to an Image object
+            image_data = base64.b64decode(message_format.content)
+            message_content = Image.open(BytesIO(image_data))
+            message_content = message_content.convert("RGB")
+        else:
+            message_content = message_format.content
         return MessageState(
-            message=message_format.content,
+            message=message_content,
             user_id=message_format.sender_id,
             receiver_id=message_format.receiver_id if message_format.receiver_id != "None" else None,
             user_name=message_format.extra_event_info.user_name or message_format.sender_id,
             user_profile_image=message_format.extra_event_info.user_image,
             own_message=user_id == message_format.sender_id,
-            is_image_message=message_format.event_type in (EventType.PUBLIC_IMAGE, EventType.PRIVATE_IMAGE),
+            is_image_message=is_image_message,
             timestamp=message_format.timestamp,
         )
 

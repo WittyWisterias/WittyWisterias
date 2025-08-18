@@ -2,6 +2,9 @@ import base64
 import json
 import zlib
 from dataclasses import asdict, dataclass, field
+from io import BytesIO
+
+from PIL import Image
 
 from .cryptographer import Cryptographer
 from .database import Database
@@ -236,7 +239,15 @@ class Backend:
                 verify_key = queried_data.verify_keys_stack[message.sender_id]
                 try:
                     # Verify the message content using the verify key
-                    message.content = Cryptographer.verify_message(message.content, verify_key)
+                    # Decode the image content if it's an image message
+                    verified_content = Cryptographer.verify_message(message.content, verify_key)
+
+                    if message.event_type == EventType.PUBLIC_IMAGE:
+                        image_data = base64.b64decode(verified_content)
+                        message_content = Image.open(BytesIO(image_data))
+                        message.content = message_content.convert("RGB")
+                    else:
+                        message.content = verified_content
                     verified_messaged.append(message)
                 except ValueError:
                     pass

@@ -31,14 +31,24 @@ def create_chat_component(create_chat_button: rx.Component, user_id: str | None 
                         variant="surface",
                         class_name="w-full",
                     ),
-                    rx.text_area(
-                        placeholder="Write your first message...",
-                        size="3",
-                        rows="5",
-                        name="message",
-                        required=True,
-                        variant="surface",
-                        class_name="w-full",
+                    rx.cond(
+                        ChatState.frame_data,
+                        rx.image(
+                            src=ChatState.frame_data,
+                            width="480px",
+                            alt="Live frame",
+                            border="2px solid teal",
+                            border_radius="16px",
+                        ),
+                        rx.hstack(
+                            rx.spinner(size="3"),
+                            rx.text(
+                                "Loading Webcam image...",
+                                color_scheme="gray",
+                                size="5",
+                            ),
+                            align="center",
+                        ),
                     ),
                     rx.hstack(
                         rx.dialog.close(rx.button("Cancel", variant="soft", color_scheme="gray")),

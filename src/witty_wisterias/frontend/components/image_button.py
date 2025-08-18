@@ -43,13 +43,13 @@ def send_image_component() -> rx.Component:
                 rx.center(rx.text("Send Image")),
                 padding="24px",
                 radius="large",
-                flex=1,
+                width="100%",
             ),
         ),
         rx.dialog.content(
             rx.dialog.title("Send Image"),
             rx.dialog.description(
-                "Send an image by describing it in the box below. TEMP: You can post an image URL.",
+                "Send an image by describing it in the box below. It will be generated using AI and sent to the chat.",
                 size="2",
                 margin_bottom="16px",
             ),

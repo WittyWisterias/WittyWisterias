@@ -41,6 +41,7 @@ def chat_sidebar() -> rx.Component:
                     rx.button(
                         rx.icon("circle-plus", size=16, class_name="text-gray-500"),
                         class_name="bg-white",
+                        on_click=ChatState.start_webcam,
                     )
                 ),
                 spacing="2",
