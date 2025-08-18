@@ -17,13 +17,14 @@ def chat_sidebar() -> rx.Component:
     return rx.el.div(
         rx.vstack(
             rx.hstack(
-                rx.heading("Witty Wisterias", size="6"),
+                rx.heading("ShitChat", size="6"),
                 rx.heading("v1.0.0", size="3", class_name="text-gray-500"),
-                spacing="2",
+                spacing="0",
                 align="baseline",
                 justify="between",
                 class_name="w-full mb-0",
             ),
+            rx.heading("by Witty Wisterias", size="2", class_name="text-gray-400 -mt-4", spacing="0"),
             rx.divider(),
             rx.heading("Public Chat", size="2", class_name="text-gray-500"),
             rx.button(

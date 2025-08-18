@@ -7,7 +7,7 @@ from frontend.components.tos_accept_form import tos_accept_form
 from frontend.states.chat_state import ChatState
 
 
-@rx.page(on_load=ChatState.startup_event)
+@rx.page(title="ShitChat by Witty Wisterias", on_load=ChatState.startup_event)
 def index() -> rx.Component:
     """The main page of the chat application, which includes the sidebar and chat app components."""
     return rx.cond(

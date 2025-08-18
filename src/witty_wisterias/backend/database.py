@@ -20,7 +20,7 @@ HOSTER_URL = "https://freeimghost.net"
 UPLOAD_URL = HOSTER_URL + "/upload"
 JSON_URL = HOSTER_URL + "/json"
 # Search Term used to query for our images (and name our files)
-FILE_SEARCH_TERM = "WittyWisteriasV8"
+FILE_SEARCH_TERM = "ShitChatV1"
 
 
 class Database:
