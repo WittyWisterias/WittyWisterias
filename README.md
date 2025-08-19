@@ -40,7 +40,11 @@ The name is a play on words, coming from [`Chit Chat`](https://dictionary.cambri
 6. Chat!
 
 ## Video Presentation
-[Video Presentation / Description](https://streamable.com/e/ag0v4j#)
+
+https://github.com/user-attachments/assets/34d2b84e-76cb-40d1-8aca-c71dcacdc9dd
+
+(Unmute for some grooves)
+
 
 ## Wrong Tool for the Job
 <details>
@@ -96,12 +100,18 @@ encryption, but we decided to not sacrifice user security and privacy for the sa
 https://freeimghost.net/search/images/?q=ShitChat
 
 #### Public Chat:
+<img width="1000" alt="Public Chat" src="https://github.com/user-attachments/assets/cedf19bc-6e5d-48df-b6da-a66f3c9cf202" />
 
 #### Private Chat:
+<img width="1000" alt="Private Chat" src="https://github.com/user-attachments/assets/f3d09c98-4bc4-4ced-a216-30d26c48dfaa" />
 
 #### Text Message Form:
+<img width="500" alt="Text Message Form" src="https://github.com/user-attachments/assets/046b4da1-aeb9-4d6d-b0ad-8f95b970a180" />
+
 
 #### Image Message Form:
+<img width="500" alt="Image Message Form" src="https://github.com/user-attachments/assets/2fa4c74f-65eb-4c74-9995-ccbf6ee4b0f8" />
+
 
 </details>
 
